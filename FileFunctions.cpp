@@ -177,7 +177,7 @@ if (SUCCEEDED(hr))
         }
 
         if (!bSelectFolder) {
-            hr = pFileOpen->SetOptions(FOS_FORCEFILESYSTEM || FOS_PATHMUSTEXIST);
+            hr = pFileOpen->SetOptions(FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST);
             if (NumTypes != 0 && FileTypes!=NULL) {
                 hr = pFileOpen->SetFileTypes(NumTypes, FileTypes);
             }
@@ -208,7 +208,7 @@ if (SUCCEEDED(hr))
             }
 
         } else {
-            hr = pFileOpen->SetOptions(FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM || FOS_PATHMUSTEXIST); // This selects only a folder, not a filename
+            hr = pFileOpen->SetOptions(FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST); // This selects only a folder, not a filename
         }
 
         // Show the Open dialog box.
@@ -344,7 +344,7 @@ BOOL CCFileSave(HWND hWnd, LPWSTR pszCurrentFilename, LPWSTR* pszFilename,
             }
 
             if (!bSelectFolder) {
-                hr = pFileSave->SetOptions(FOS_FORCEFILESYSTEM | FOS_OVERWRITEPROMPT || FOS_PATHMUSTEXIST);
+                hr = pFileSave->SetOptions(FOS_FORCEFILESYSTEM | FOS_OVERWRITEPROMPT | FOS_PATHMUSTEXIST);
                 if (NumTypes != 0 && FileTypes != NULL) {
                     hr = pFileSave->SetFileTypes(NumTypes, FileTypes);
                 }
@@ -375,7 +375,7 @@ BOOL CCFileSave(HWND hWnd, LPWSTR pszCurrentFilename, LPWSTR* pszFilename,
                 }
 
             } else {
-                hr = pFileSave->SetOptions(FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM || FOS_PATHMUSTEXIST); // This selects only a folder, not a filename
+                hr = pFileSave->SetOptions(FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST); // This selects only a folder, not a filename
             }
                      
             // Show the Open dialog box.

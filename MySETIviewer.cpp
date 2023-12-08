@@ -55,7 +55,7 @@
 // The MySETIviewer covers many of the problems people have had in the Discord group visualizing
 // the image data being generated in the decoding process.
 //
-// V0.1.1.1  2023-11-25 Initial devleopment version of application
+// V0.1.0.1  2023-12-08 Initial devleopment version of application
 // 
 //
 //  This appliction stores user parameters in a Windows style .ini file
@@ -69,7 +69,9 @@
 #include <strsafe.h>
 #include <atlpath.h>
 #include <string.h>
+#include "AppErrors.h"
 #include "MySETIviewer.h"
+#include "Layers.h"
 #include "AppFunctions.h"
 #include "imageheader.h"
 #include "FileFunctions.h"
@@ -84,7 +86,10 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 // working filenames
 WCHAR szBMPFilename[MAX_PATH] = L"";    // used to save last results file
 WCHAR szCurrentFilename[MAX_PATH] = L"";    // used to save last results file
-WCHAR szTempImageFilename[MAX_PATH] = L"";    // used as a temporary image file for processing
+WCHAR szTempDir[MAX_PATH] = L"";        // used as a temporary storage location
+
+// global Class declarations
+Layers* ImageLayers = NULL;
 
 // global flags
 int DisplayResults = 0;
@@ -96,7 +101,7 @@ int AutoPNG = 0;
 // handle for modeless dialogs and windows
 HWND hwndImageDisplay = NULL;  // handle for modeless Display Image window
 
-// color setting sna tables for Display
+// color setting tables for Display
 COLORREF rgbBackground = 0;      // display background color
 COLORREF rgbGapMajor = 0;            // display Grid color
 COLORREF rgbGapMinor = 0;             // display Gap color
@@ -132,13 +137,19 @@ ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 
-// Declaration for callback dialog procedures in other modules
 
+// Declaration for callback dialog procedures in other modules
 INT_PTR CALLBACK    AboutDlg(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    SettingsDisplayDlg(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    SettingsLayersDlg(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK    SettingsGlobalDlg(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    ImageDlg(HWND, UINT, WPARAM, LPARAM);
 
+//*******************************************************************************
+//
+// int APIENTRY wWinMain
+//
+//*******************************************************************************
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPWSTR    lpCmdLine,
@@ -212,12 +223,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 }
 
 
-
+//*******************************************************************************
 //
 //  FUNCTION: MyRegisterClass()
 //
 //  PURPOSE: Registers the window class.
 //
+//*******************************************************************************
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
     WNDCLASSEXW wcex;
@@ -239,6 +251,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     return RegisterClassExW(&wcex);
 }
 
+//*******************************************************************************
 //
 //   FUNCTION: InitInstance(HINSTANCE, int)
 //
@@ -249,6 +262,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 //        In this function, we save the instance handle in a global variable and
 //        create and display the main program window.
 //
+//*******************************************************************************
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // Store instance handle in our global variable
@@ -271,25 +285,25 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    // load globals
 
    hwndMain = hWnd;
+   ImageLayers = new Layers;
 
    // strings
    WCHAR szString[MAX_PATH];
-   GetPrivateProfileString(L"GlobalSettings", L"BMPresults", L"", szString, MAX_PATH, (LPCTSTR)strAppNameINI);
+   GetPrivateProfileString(L"SettingsGlobalDlg", L"BMPresults", L"", szString, MAX_PATH, (LPCTSTR)strAppNameINI);
    wcscpy_s(szBMPFilename, szString);
 
-   GetPrivateProfileString(L"GlobalSettings", L"TempImageFilename", L"", szString, MAX_PATH, (LPCTSTR)strAppNameINI);
-   wcscpy_s(szTempImageFilename, szString);
+   GetPrivateProfileString(L"SettingsGlobalDlg", L"TempDir", L"", szString, MAX_PATH, (LPCTSTR)strAppNameINI);
+   wcscpy_s(szTempDir, szString);
 
-   GetPrivateProfileString(L"GlobalSettings", L"CurrentFIlename", L"", szString, MAX_PATH, (LPCTSTR)strAppNameINI);
+   GetPrivateProfileString(L"SettingsGlobalDlg", L"CurrentFIlename", L"", szString, MAX_PATH, (LPCTSTR)strAppNameINI);
    wcscpy_s(szCurrentFilename, szString);
 
    // variables
 
-   DisplayResults = GetPrivateProfileInt(L"SettingsDisplayDlg", L"DisplayResults", 1, (LPCTSTR)strAppNameINI);
-   AutoScaleResults = GetPrivateProfileInt(L"SettingsDisplayDlg", L"AutoScaleResults", 1, (LPCTSTR)strAppNameINI);
-   DefaultRBG = GetPrivateProfileInt(L"SettingsDisplayDlg", L"DefaultRBG", 1, (LPCTSTR)strAppNameINI);
-   AutoSize = GetPrivateProfileInt(L"SettingsDisplayDlg", L"AutoSize", 0, (LPCTSTR)strAppNameINI);
-   AutoPNG = GetPrivateProfileInt(L"SettingsDisplayDlg", L"AutoPNG", 1, (LPCTSTR)strAppNameINI);
+   DisplayResults = GetPrivateProfileInt(L"SettingsGlobalDlg", L"DisplayResults", 1, (LPCTSTR)strAppNameINI);
+   AutoScaleResults = GetPrivateProfileInt(L"SettingsGlobalDlg", L"AutoScaleResults", 1, (LPCTSTR)strAppNameINI);
+   AutoSize = GetPrivateProfileInt(L"SettingsGlobalDlg", L"AutoSize", 0, (LPCTSTR)strAppNameINI);
+   AutoPNG = GetPrivateProfileInt(L"SettingsGlobalDlg", L"AutoPNG", 1, (LPCTSTR)strAppNameINI);
 
    rgbBackground = (COLORREF) GetPrivateProfileInt(L"SettingsDisplayDlg", L"rgbBackground", 0, (LPCTSTR)strAppNameINI);
    rgbGapMajor = (COLORREF) GetPrivateProfileInt(L"SettingsDisplayDlg", L"rgbGapMajor", 0, (LPCTSTR)strAppNameINI);
@@ -298,7 +312,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    for (int i = 0; i < 16; i++) {
        WCHAR CustomColor[20];
        swprintf_s(CustomColor, 20, L"CustomColorTable%d", i);
-       CustomColorTable[i] = (COLORREF) GetPrivateProfileInt(L"SettingsDisplayDlg", CustomColor, 0, (LPCTSTR)strAppNameINI);
+       CustomColorTable[i] = (COLORREF) GetPrivateProfileInt(L"SettingsDlg", CustomColor, 0, (LPCTSTR)strAppNameINI);
    }
 
    GridXmajor = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GridXmajor", 4, (LPCTSTR)strAppNameINI);
@@ -310,9 +324,16 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    GapYmajor = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GapYmajor", 2, (LPCTSTR)strAppNameINI);
    GapYminor = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GapYminor", 1, (LPCTSTR)strAppNameINI);
 
+   COLORREF Color;
+   Color = (COLORREF) GetPrivateProfileInt(L"SettingsDlg", L"DefaultColor", 1, (LPCTSTR)strAppNameINI);
+   ImageLayers->SetDefaultColor(Color);
+   Color = (COLORREF)GetPrivateProfileInt(L"SettingsDlg", L"OverlayColor", 1, (LPCTSTR)strAppNameINI);
+   ImageLayers->SetOverlayColor(Color);
+
    return TRUE;
 }
 
+//*******************************************************************************
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -323,6 +344,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //  WM_DESTROY  - post a quit message and return
 //
 //
+//*******************************************************************************
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
@@ -333,8 +355,103 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // Parse the menu selections:
             switch (wmId)
             {
+            
+            case IDM_LAYER_NEW:
+            {
+                int NumLayers = ImageLayers->GetNumLayers();
+                if (NumLayers == 0) {
+                    break;
+                }
+
+                ImageLayers->ReleaseOverlay();
+                for (int i = NumLayers - 1; i >= 0; i--) {
+                    ImageLayers->ReleaseLayer(i);
+                }
+                break;
+            }
+
+            case IDM_LOAD_CONFIGURATION:
+            {
+                int iRes;
+                WCHAR szFilename[MAX_PATH];
+
+                PWSTR pszFilename;
+                COMDLG_FILTERSPEC AllType[] =
+                {
+                     { L"Image files", L"*.cfg" },
+                     { L"All Files", L"*.*" },
+                };
+
+                if (!CCFileOpen(hWnd, ImageLayers->ConfigurationFile, &pszFilename, FALSE, 2, AllType, L".cfg")) {
+                    break;
+                }
+
+                wcscpy_s(szFilename, pszFilename);
+                CoTaskMemFree(pszFilename);
+
+                iRes = ImageLayers->LoadConfiguration(szFilename);
+                if (iRes != APP_SUCCESS) {
+                    MessageMySETIviewerError(hWnd, iRes, L"Layers");
+                }
+                break;
+            }
+
+            case IDM_SAVE_CONFIGURATION :
+            {
+                int iRes;
+
+                if (ImageLayers->GetNumLayers() == 0) {
+                    MessageBox(hWnd, L"No layers loaded", L"Layers", MB_OK);
+                    break;
+                }
+                
+                if (wcslen(ImageLayers->ConfigurationFile) != 0) {
+                    iRes = ImageLayers->SaveConfiguration();
+                    if (iRes == APP_SUCCESS) {
+                        break;
+                    }
+                }
+                // go ahead with IDM_SAVE_AS_CONFIGURATION
+            }
+            case IDM_SAVE_AS_CONFIGURATION:
+            {
+                int iRes;
+
+                if (ImageLayers->GetNumLayers() == 0) {
+                    MessageBox(hWnd, L"No layers loaded", L"Layers", MB_OK);
+                    break;
+                }
+
+                WCHAR szFilename[MAX_PATH];
+                
+                PWSTR pszFilename;
+                COMDLG_FILTERSPEC AllType[] =
+                {
+                     { L"Image files", L"*.cfg" },
+                     { L"All Files", L"*.*" },
+                };
+
+                if (!CCFileSave(hWnd, ImageLayers->ConfigurationFile, &pszFilename, FALSE, 2, AllType, L".cfg")) {
+                    break;
+                }
+
+                wcscpy_s(szFilename, pszFilename);
+                CoTaskMemFree(pszFilename);
+
+                iRes = ImageLayers->SaveConfiguration(szFilename);
+                if (iRes == APP_SUCCESS) {
+                    wcscpy_s(ImageLayers->ConfigurationFile, MAX_PATH, szFilename);
+                }
+                break;
+            }
+
             case IDM_ADD_LAYER:
             {
+                if (ImageLayers->GetNumLayers() >= MAX_LAYERS) {
+                    MessageBox(hWnd, L"Max layers reached", L"Layers", MB_OK);
+                    break;
+                }
+
                 PWSTR pszFilename;
                 COMDLG_FILTERSPEC AllType[] =
                 {
@@ -344,26 +461,39 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 };
 
                 if (!CCFileOpen(hWnd, szCurrentFilename, &pszFilename, FALSE, 3, AllType, L".raw")) {
-                    return (INT_PTR)TRUE;
-                }
-                {
-                    wcscpy_s(szCurrentFilename, pszFilename);
-                    CoTaskMemFree(pszFilename);
-
-                    if (!IsWindow(hwndImage)) {
-                        hwndImage = CreateDialog(hInst, MAKEINTRESOURCE(IDD_DISPLAY), hWnd, ImageDlg);
-                    }
-                    int iRes;
-
-                    iRes = DisplayImage(szCurrentFilename);
-                    if (iRes != 1) {
-                        MessageBox(hWnd, L"Error opening image/BMP for display\nMake sure BMP file set inProperties->Settings\n", L"File Incompatible", MB_OK);
-                    }
-                    else {
-                        ShowWindow(hwndImage, SW_SHOW);
-                    }
+                    break;
                 }
 
+                wcscpy_s(szCurrentFilename, pszFilename);
+                CoTaskMemFree(pszFilename);
+
+                int iRes = ImageLayers->AddLayer(szCurrentFilename);
+                if (iRes != APP_SUCCESS) {
+                    MessageMySETIviewerError(hWnd, iRes, L"Add layer failure");
+                    break;
+                }
+                break;
+            }
+
+            case IDM_REMOVE_LAYER:
+            {
+                DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTINGS_LAYERS), hWnd, SettingsLayersDlg);
+                break;
+            }
+
+            case IDM_RELOAD_LAYERS:
+            {
+                int iRes;
+                iRes = ImageLayers->GetNumLayers();
+                if (iRes == 0) {
+                    MessageBox(hWnd, L"No layers to reload\nTry Load configuration", L"Layers", MB_OK);
+                    break;
+                }
+                iRes = ImageLayers->LoadConfiguration(ImageLayers->ConfigurationFile);
+                if (iRes != APP_SUCCESS) {
+                    MessageMySETIviewerError(hWnd, iRes, L"Layers");
+                    break;
+                }
                 break;
             }
 
@@ -372,12 +502,53 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
 
             case IDM_SETTINGS_DISPLAY:
+                if (wcslen(szTempDir) == 0) {
+                    MessageBox(hWnd, L"Working file folder needs to be set\nin Settings->Global first", L"Layers", MB_OK);
+                    break;
+                }
                 DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTINGS_DISPLAY), hWnd, SettingsDisplayDlg);
                 break;
 
             case IDM_SETTINGS_LAYERS:
+                if (wcslen(szTempDir) == 0) {
+                    MessageBox(hWnd, L"Working file folder needs to be set\nin Settings->Global first", L"Layers", MB_OK);
+                    break;
+                }
                 DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTINGS_LAYERS), hWnd, SettingsLayersDlg);
                 break;
+
+            case IDM_SETTINGS_GLOBAL:
+                DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTINGS_GLOBAL), hWnd, SettingsGlobalDlg);
+                break;
+
+            case IDM_LAYER_SAVEBMP:
+            {
+                if (!ImageLayers->OverlayValid) {
+                    MessageBox(hWnd, L"Overlay is not valid to save\nmake sure current configuration is applied", L"Layers", MB_OK);
+                    break;
+                }
+
+                PWSTR pszFilename;
+                COMDLG_FILTERSPEC AllType[] =
+                {
+                     { L"BMP files", L"*.bmp" },
+                     { L"All Files", L"*.*" }
+                };
+
+                if (!CCFileSave(hWnd, szCurrentFilename, &pszFilename, FALSE, 2, AllType, L".bmp")) {
+                    break;
+                }
+
+                wcscpy_s(szCurrentFilename, pszFilename);
+                CoTaskMemFree(pszFilename);
+
+                int iRes;
+                iRes = ImageLayers->SaveImageBMP(szCurrentFilename);
+                if (iRes != APP_SUCCESS) {
+                    MessageBox(hWnd, L"Save Failed", L"Layers", MB_OK);
+                }
+                break;
+            }
 
             case IDM_EXIT:
                 DestroyWindow(hWnd);
@@ -401,6 +572,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             CString csString = L"MainWindow";
             WritePrivateProfileString(L"GlobalSettings", L"CurrentFIlename", szCurrentFilename, (LPCTSTR)strAppNameINI);
             SaveWindowPlacement(hWnd, csString);
+            // delete any global classes;
+            delete ImageLayers;
         }
         PostQuitMessage(0);
         break;

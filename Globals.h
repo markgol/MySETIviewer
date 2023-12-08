@@ -1,7 +1,9 @@
 #pragma once
 //
 // GLobal variables
-// 
+//
+#include "Layers.h"
+#include "AppErrors.h"
 
 // Version info
 extern CString strProductName;
@@ -17,7 +19,7 @@ extern CString strAppNameINI;
 extern WCHAR szBMPFilename[MAX_PATH];
 extern WCHAR szCurrentFilename[MAX_PATH];
 extern WCHAR szBMPFilename[MAX_PATH];
-extern WCHAR szTempImageFilename[MAX_PATH];
+extern WCHAR szTempDir[MAX_PATH];
 
 // globals flags
 extern int DisplayResults;
@@ -30,6 +32,8 @@ extern int AutoPNG;
 extern HWND hwndMain;
 extern HWND hwndImage;
 extern HINSTANCE hInst;
+
+extern Layers* ImageLayers;
 
 // Display message handler
 extern INT_PTR CALLBACK ImageDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);

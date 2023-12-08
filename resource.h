@@ -12,6 +12,7 @@
 #define IDD_SETTINGS_DISPLAY            134
 #define IDD_DISPLAY                     137
 #define IDD_SETTINGS_LAYERS             138
+#define IDD_SETTINGS_GLOBAL             139
 #define IDC_GENERATE_BMP                1091
 #define IDC_BMP_RESULTS_BROWSE          1092
 #define IDC_IMG_TEMP                    1093
@@ -56,6 +57,14 @@
 #define IDC_Y_MINUS                     1215
 #define IDC_Y_PLUS                      1216
 #define IDC_SELECT_LAYER_COLOR          1217
+#define IDC_SELECT_DEFAULT_COLOR        1218
+#define IDC_DEFAULT_COLOR               1219
+#define IDC_LAYER_LIST                  1220
+#define IDC_DELETE_LAYER                1221
+#define IDC_SELECT_OVERLAY_COLOR        1222
+#define IDC_OVERLAY_COLOR               1223
+#define IDC_CHECK1                      1224
+#define IDC_ENABLE                      1224
 #define IDM_PROPERTIES_SETTINGS         32601
 #define IDM_SETTINGS                    32602
 #define IDC_FILE_OPEN                   32604
@@ -68,6 +77,17 @@
 #define ID_LAYER_LOADLAYERCONFIGURATION 32615
 #define IDM_SAVE_CONFIGURATION          32616
 #define IDM_LOAD_CONFIGURATION          32617
+#define ID_LAYER_RELOADALLLAYERS        32618
+#define IDM_RELOAD_LAYERS               32619
+#define ID_LAYER_SAVELAYERCONFIGURATIONAS 32620
+#define IDM_SAVE_AS_CONFIGURATION       32621
+#define ID_SETTINGS_GLOBAL              32622
+#define IDM_SETTINGS_GLOBAL             32623
+#define ID_LAYER_NEW                    32624
+#define IDM_LAYER_NEW                   32625
+#define ID_LAYER_SAVEIMAGEASBMPFILE     32626
+#define ID_LAYER_SAVEBMP                32627
+#define IDM_LAYER_SAVEBMP               32628
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -76,8 +96,8 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        200
-#define _APS_NEXT_COMMAND_VALUE         32618
-#define _APS_NEXT_CONTROL_VALUE         1218
+#define _APS_NEXT_COMMAND_VALUE         32629
+#define _APS_NEXT_CONTROL_VALUE         1225
 #define _APS_NEXT_SYMED_VALUE           300
 #endif
 #endif

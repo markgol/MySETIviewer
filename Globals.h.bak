@@ -4,7 +4,6 @@
 //
 #include "Layers.h"
 #include "Display.h"
-#include "ImageDialog.h"
 #include "AppErrors.h"
 
 // Version info
@@ -24,6 +23,10 @@ extern WCHAR szBMPFilename[MAX_PATH];
 extern WCHAR szTempDir[MAX_PATH];
 
 // globals flags
+extern int DisplayResults;
+extern int AutoScaleResults;
+extern int DefaultRBG;
+extern int AutoSize;
 extern int AutoPNG;
 
 // Application handles and instances
@@ -37,7 +40,4 @@ extern Display* Displays;
 // Display message handler
 extern INT_PTR CALLBACK ImageDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
-extern COLORREF CustomColorTable[16]; // array of custom colors
-
-extern ImageDialog* ImgDlg;
-
+extern COLORREF CustomColorTable[16]; // array of custom colors 

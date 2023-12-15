@@ -42,24 +42,9 @@
 //
 // Some function return TRUE/FALSE results
 // 
-// V1.0.0.1 2023-08-20, Initial Release
-// V1.1.0.1 2023-08-22  Added file type specifications to open/save dialogs
-// V1.2.1.1 2023-09-06  Added ImportBMP
-//                      Added Hex2Binary
-//                      Corrected ImageDlg to display results file only once.
-// V1.2.2.1 2023-09-06  Path must exist check is done on selected files in dialogs.
-//                      Corrected bug introduced in V1.2.1 where incorrect frame size
-//                      was used in the ImportBMP function.
-// V1.2.4.1 2023-09-09  Added import CamIRa IMG file
-//                      Clean up of file open/save filename handling
-// V1.2.5.1 2023-09-09  Updated default directory handling
-// V1.2.6.1 2023-09-24  Correction, Display Image/BMP file was not displaying BMP file
-//                      Changed, display of 16, 32 bit image data, using scaled BMP file.
-//                      The BMP file is still only a 8bpp file.
-//                      (not applicable to A Sign in Space project)
-// V1.2.8.1 2023-10-18  Add filesize function
-// V1.2.10.1 2023-11-5  Changed, Export file, output file default is same as input file with .bmp extension
-//                      Changed, ExportBMP, added automatically saving a matching .png using a global flag  
+// V0.1.0.1 2023-11-28  pre release based on MySETIapp FileFunctions.cpp V1.2.10.1 2023-11-05
+// V0.3.0.1 2023-12-15  Removed ImportBMP() function.  Add layer already perofrms this function.
+//                      Removed DisplayImage() function.  Replaced by other methods.
 //
 #include "framework.h"
 #include "resource.h"
@@ -603,80 +588,6 @@ int LoadImageFile(int** ImagePtr, WCHAR* ImagingFilename, IMAGINGHEADER* Header)
 
 //****************************************************************
 //
-//  This function displays a BMP or image file in 
-//  the image display window.
-//
-//****************************************************************
-int DisplayImage(WCHAR* Filename)
-{
-    // determine if .BMP or .RAW file type by examing the header
-    // record in the file.
-    // if the file is an image file ten convert it to a BMP
-    // file in order to dusplay it.  Use the filename in global
-    // szBMPFilename then update the image.  If iot is a BMP file
-    // then copy it to the filename in global szBMPFilename.
-    IMAGINGHEADER ImageHeader;
-    size_t iRes;
-
-    iRes = ReadImageHeader(Filename, &ImageHeader);
-    if (iRes== 1) {
-        // this is a image file
-        // convert to BMP file
-        iRes = SaveBMP(szBMPFilename, Filename, DefaultRBG, AutoScaleResults);
-        if (iRes !=1) {
-            return (int) iRes;
-        }
-        // trigger redraw
-        if (!IsWindow(hwndImage)) {
-            hwndImage = CreateDialog(hInst, MAKEINTRESOURCE(IDD_DISPLAY), hwndMain, ImageDlg);
-        }
-        if (hwndImage != NULL) {
-            PostMessage(hwndImage, WM_COMMAND, IDC_GENERATE_BMP, 0l);
-            ShowWindow(hwndImage, SW_SHOW);
-        }
-        return 1;
-    }
-
-    // This should be a BMP file
-    // read BMPheader to verify
-    BITMAPFILEHEADER BMPheader;
-    
-    errno_t ErrNum;
-    FILE* In;
-
-    ErrNum = _wfopen_s(&In, Filename, L"rb");
-    if (In == NULL) {
-        return -2;
-    }
-    iRes = fread(&BMPheader, sizeof(BMPheader), 1, In);
-    if (iRes != 1) {
-        fclose(In);
-        return -4;
-    }
-    if (BMPheader.bfType != 0x4d42 || BMPheader.bfReserved1 != 0 || BMPheader.bfReserved2 != 0) {
-        fclose(In);
-        return -4;
-    }
-    fclose(In);
-
-    // copy filename to szBMPFilename
-    if (!CopyFile(Filename, szBMPFilename, FALSE)) {
-        return -3;
-    }
-    // trigger redraw
-    if (!IsWindow(hwndImage)) {
-        hwndImage = CreateDialog(hInst, MAKEINTRESOURCE(IDD_DISPLAY), hwndMain, ImageDlg);
-    }
-    if (hwndImage != NULL) {
-        PostMessage(hwndImage, WM_COMMAND, IDC_GENERATE_BMP, 0l);
-        ShowWindow(hwndImage, SW_SHOW);
-    }
-    return 1;
-}
-
-
-//****************************************************************
-//
 //  SaveBMP
 // 
 //  This a generic function is used to export a 'image file' to a BMP file type.
@@ -1216,339 +1127,6 @@ return 1;
 
 //****************************************************************
 //
-//  ImportBMP
-// 
-//****************************************************************
-int ImportBMP(HWND hWnd)
-{
-    WCHAR InputFilename[MAX_PATH];
-    WCHAR OutputFilename[MAX_PATH];
-
-    GetPrivateProfileString(L"ImportBMP", L"InputFile", L"*.bmp", InputFilename, MAX_PATH, (LPCTSTR)strAppNameINI);
-    GetPrivateProfileString(L"ImportBMP", L"OutputFile", L"*.raw", OutputFilename, MAX_PATH, (LPCTSTR)strAppNameINI);
-
-    PWSTR pszFilename;
-    COMDLG_FILTERSPEC BMPType[] =
-    {
-         { L"BMP files", L"*.bmp" },
-         { L"All Files", L"*.*" }
-    };
-
-    COMDLG_FILTERSPEC IMGType[] =
-    {
-         { L"Image files", L"*.raw" },
-         { L"All Files", L"*.*" }
-    };
-
-    if (!CCFileOpen(hWnd, InputFilename, &pszFilename, FALSE, 2, BMPType, L".bmp")) {
-        return 1;
-    }
-    wcscpy_s(InputFilename, pszFilename);
-    CoTaskMemFree(pszFilename);
-
-    if (!CCFileSave(hWnd, OutputFilename, &pszFilename, FALSE, 2, IMGType, L".bmp")) {
-        return 1;
-    }
-    wcscpy_s(OutputFilename, pszFilename);
-    CoTaskMemFree(pszFilename);
-
-    WritePrivateProfileString(L"ImportBMP", L"InputFile", InputFilename, (LPCTSTR)strAppNameINI);
-    WritePrivateProfileString(L"ImportBMP", L"OutputFile", OutputFilename, (LPCTSTR)strAppNameINI);
-
-    int Invert=0;
-    if (MessageBox(hWnd, L"Invert Image?", L"Conversion parameter", MB_YESNO) == IDYES) {
-        Invert = 1;
-    }
-
-    // open BMP file
-    FILE* BMPfile;
-    errno_t ErrNum;
-    int iRes;
-
-    ErrNum = _wfopen_s(&BMPfile, InputFilename, L"rb");
-    if (!BMPfile) {
-        return -2;
-    }
-
-    // read BMP headers
-    BITMAPFILEHEADER BMPheader;
-    BITMAPINFOHEADER BMPinfoheader;
-    int StrideLen;
-    int* Image;
-    BYTE* Stride;
-
-    iRes = (int)fread(&BMPheader, sizeof(BITMAPFILEHEADER), 1, BMPfile);
-    if (iRes != 1) {
-        fclose(BMPfile);
-        return -4;
-    }
-
-    iRes = (int)fread(&BMPinfoheader, sizeof(BITMAPINFOHEADER), 1, BMPfile);
-    if (iRes != 1) {
-        fclose(BMPfile);
-        return -4;
-    }
-
-    // verify this type of file can be imported
-    if (BMPheader.bfType != 0x4d42 || BMPheader.bfReserved1 != 0 || BMPheader.bfReserved2 != 0) {
-        // this is not a BMP file
-        fclose(BMPfile);
-        return -4;
-    }
-    if (BMPinfoheader.biSize != sizeof(BITMAPINFOHEADER)) {
-        // this is not a BMP file
-        fclose(BMPfile);
-        return -4;
-    }
-
-    if (BMPinfoheader.biCompression != BI_RGB) {
-        // this is wrong type of BMP file
-        fclose(BMPfile);
-        return 0;
-    }
-    if (BMPinfoheader.biBitCount != 1 && BMPinfoheader.biBitCount != 8 && 
-         BMPinfoheader.biBitCount != 24 && BMPinfoheader.biPlanes!=1) {
-        // this is wrong type of BMP file
-        fclose(BMPfile);
-        return 0;
-    }
-
-    // read in image
-    int BMPimageBytes;
-    int TopDown = 1;
-    if (BMPinfoheader.biHeight < 0) {
-        TopDown = 0;
-        BMPinfoheader.biHeight = -BMPinfoheader.biHeight;
-    }
-
-    // BMP files have a specific requirement for # of bytes per line
-    // This is called stride.  The formula used is from the specification.
-    StrideLen = ((((BMPinfoheader.biWidth * BMPinfoheader.biBitCount) + 31) & ~31) >> 3); // 24 bpp
-    BMPimageBytes = StrideLen * BMPinfoheader.biHeight; // size of image in bytes
-
-    // allocate stride
-    Stride = new BYTE[(size_t)StrideLen];
-    if (Stride == NULL) {
-        fclose(BMPfile);
-        return -1;
-    }
-
-    int NumFrames = 1;
-
-    if (BMPinfoheader.biBitCount == 1) {
-        // This is bit image, has color table, 2 entries
-        // Skip the 2 RGBQUAD entries
-        if (fseek(BMPfile, sizeof(RGBQUAD) * 2, SEEK_CUR) != 0) {
-            delete[] Stride;
-            fclose(BMPfile);
-            return -4;
-        }
-        int BitCount;
-        int StrideIndex;
-        int Offset;
-
-        // allocate Image
-        // alocate array of 'int's to receive image
-        Image = new int[(size_t)BMPinfoheader.biWidth * (size_t)BMPinfoheader.biHeight];
-        if (Image == NULL) {
-            delete[] Stride;
-            fclose(BMPfile);
-            return -1;
-        }
-
-        // BMPimage of BMPimageBytes
-        for (int y = 0; y < BMPinfoheader.biHeight; y++) {
-            // read stride
-            iRes = (int)fread(Stride, 1, StrideLen, BMPfile);
-            if (iRes != StrideLen) {
-                delete[] Image;
-                delete[] Stride;
-                fclose(BMPfile);
-                return -4;
-            }
-            BitCount = 0;
-            StrideIndex = 0;
-            if (TopDown) {
-                Offset = ((BMPinfoheader.biHeight-1) - y) * BMPinfoheader.biWidth;
-            }
-            else {
-                Offset = y * BMPinfoheader.biWidth;
-            }
-            for (int x = 0; x < BMPinfoheader.biWidth; x++) {
-                // split out bit by bit
-                Image[Offset + x] = Stride[StrideIndex] & (0x80 >> BitCount);
-                if (Image[Offset + x]!=0) {
-                    if (Invert == 0) {
-                        Image[Offset + x] = 1;
-                    }
-                    else {
-                        Image[Offset + x] = 0;
-                    }
-                }
-                else {
-                    if (Invert == 0) {
-                        Image[Offset + x] = 0;
-                    }
-                    else {
-                        Image[Offset + x] = 1;
-                    }
-                }
-                BitCount++;
-                if (BitCount == 8) {
-                    BitCount = 0;
-                    StrideIndex++;
-                }
-            }
-        }
-    }
-    else if(BMPinfoheader.biBitCount == 8){
-        // this is a byte image, has color table, 256 entries
-        // Skip the 256 RGBQUAD entries
-        if (fseek(BMPfile, sizeof(RGBQUAD) * 256, SEEK_CUR) != 0) {
-            delete[] Stride;
-            fclose(BMPfile);
-            return -4;
-        }
-
-        // allocate Image
-        // alocate array of 'int's to receive image
-        Image = new int[(size_t)BMPinfoheader.biWidth * (size_t)BMPinfoheader.biHeight];
-        if (Image == NULL) {
-            delete[] Stride;
-            fclose(BMPfile);
-            return -1;
-        }
-
-        // BMPimage of BMPimageBytes
-        int Offset;
-
-        for (int y = 0; y < BMPinfoheader.biHeight; y++) {
-            // read stride
-            iRes = (int)fread(Stride, 1, StrideLen, BMPfile);
-            if (iRes != StrideLen) {
-                delete[] Image;
-                delete[] Stride;
-                fclose(BMPfile);
-                return -4;
-            }
-            if (TopDown) {
-                Offset = ((BMPinfoheader.biHeight - 1) - y) * BMPinfoheader.biWidth;
-            }
-            else {
-                Offset = y * BMPinfoheader.biWidth;
-            }
-
-            for (int x = 0; x < BMPinfoheader.biWidth; x++) {
-                Image[Offset + x] = Stride[x];
-            }
-        }
-    }
-    else {
-        // this is a 24 bit, RGB image
-        // The color table is biClrUsed long
-        NumFrames = 3;
-        if (BMPinfoheader.biClrUsed != 0) {
-            // skip the color table if present
-            if (fseek(BMPfile, sizeof(RGBQUAD) * BMPinfoheader.biClrUsed, SEEK_CUR) != 0) {
-                delete[] Stride;
-                fclose(BMPfile);
-                return -4;
-            }
-        }
-        
-        Image = new int[(size_t)BMPinfoheader.biWidth * (size_t)BMPinfoheader.biHeight * (size_t)3];
-        if (Image == NULL) {
-            delete[] Stride;
-            fclose(BMPfile);
-            return -1;
-        }
-
-        // BMPimage of BMPimageBytes
-        int Offset;
-        int RedFrame = 0;
-        int GreenFrame = BMPinfoheader.biHeight * BMPinfoheader.biWidth;
-        int BlueFrame = BMPinfoheader.biHeight * BMPinfoheader.biWidth * 2;
-
-        for (int y = 0; y < BMPinfoheader.biHeight; y++) {
-            // read stride
-            iRes = (int)fread(Stride, 1, StrideLen, BMPfile);
-            if (iRes != StrideLen) {
-                delete[] Image;
-                delete[] Stride;
-                fclose(BMPfile);
-                return -4;
-            }
-            if (TopDown) {
-                Offset = ((BMPinfoheader.biHeight - 1) - y) * BMPinfoheader.biWidth;
-            }
-            else {
-                Offset = y * BMPinfoheader.biWidth;
-            }
-
-            for (int x = 0; x < BMPinfoheader.biWidth; x++) {
-                Image[BlueFrame + Offset + x] = Stride[x * 3 + 0];
-                Image[GreenFrame + Offset + x] = Stride[x * 3 + 1];
-                Image[RedFrame + Offset + x] = Stride[x * 3 + 2];
-            }
-        }
-    }
-
-    delete[] Stride;
-    fclose(BMPfile);
-
-    // save image
-    IMAGINGHEADER ImgHeader;
-    ImgHeader.Endian = (short)-1;  // PC format
-    ImgHeader.HeaderSize = (short)sizeof(IMAGINGHEADER);
-    ImgHeader.ID = (short)0xaaaa;
-    ImgHeader.Version = (short)1;
-    ImgHeader.NumFrames = (short)NumFrames;
-    ImgHeader.PixelSize = (short)1;
-    ImgHeader.Xsize = BMPinfoheader.biWidth;
-    ImgHeader.Ysize = BMPinfoheader.biHeight;
-    ImgHeader.Padding[0] = 0;
-    ImgHeader.Padding[1] = 0;
-    ImgHeader.Padding[2] = 0;
-    ImgHeader.Padding[3] = 0;
-    ImgHeader.Padding[4] = 0;
-    ImgHeader.Padding[5] = 0;
-
-    FILE* ImgFile;
-    ErrNum = _wfopen_s(&ImgFile, OutputFilename, L"wb");
-    if (ImgFile==NULL) {
-        delete[] Image;
-        return -2;
-    }
-
-    BYTE Pixel;
-    fwrite(&ImgHeader, sizeof(IMAGINGHEADER), 1, ImgFile);
-
-    for (int i = 0; i < (ImgHeader.Xsize*ImgHeader.Ysize * NumFrames) ; i++) {
-        if (Image[i] <= 0) {
-            Pixel = 0;
-        }
-        else if(Image[i] > 255) {
-            Pixel = 255;
-        }
-        else {
-            Pixel = Image[i];
-        }
-        fwrite(&Pixel, 1, 1, ImgFile);
-    }
-    fclose(ImgFile);
-    delete[] Image;
-
-    wcscpy_s(szCurrentFilename, OutputFilename);
-
-    if (DisplayResults) {
-        DisplayImage(OutputFilename);
-    }
-
-    return 1;
-}
-
-//****************************************************************
-//
 //  Hex2Binary
 // 
 //****************************************************************
@@ -1690,7 +1268,7 @@ int CamIRaImport(HWND hWnd)
     int iRes;
     int HeaderLen;
     HeaderLen = sizeof(CamIRaHeader);
-    iRes = fread(&CamIRaHeader, HeaderLen, 1, Input);
+    iRes = (int)fread(&CamIRaHeader, HeaderLen, 1, Input);
     if (iRes != 1) {
         fclose(Input);
         return -4;
@@ -1747,7 +1325,7 @@ int CamIRaImport(HWND hWnd)
             for (int x = 0; x < ImgHeader.Xsize; x++) {
                 if (ImgHeader.PixelSize == 1) {
                     BYTE Pixel;
-                    iRes = fread(&Pixel, 1, 1, Input);
+                    iRes = (int)fread(&Pixel, 1, 1, Input);
                     if (iRes != 1) {
                         fclose(Input);
                         fclose(Output);
@@ -1757,7 +1335,7 @@ int CamIRaImport(HWND hWnd)
                 }
                 else {
                     short Pixel;
-                    iRes = fread(&Pixel, 2, 1, Input);
+                    iRes = (int)fread(&Pixel, 2, 1, Input);
                     if (iRes != 1) {
                         fclose(Input);
                         fclose(Output);
@@ -1793,7 +1371,7 @@ int GetFileSize(WCHAR* szString)
     }
 
     while (!feof(In)) {
-        iRes = fread(&Junk, 1, 1, In);
+        iRes = (int)fread(&Junk, 1, 1, In);
         if (iRes != 1) {
             break;
         }
@@ -1863,3 +1441,108 @@ int SaveBMP2PNG(WCHAR* Filename)
     return 0;
 }
 
+//****************************************************************
+//
+//  SaveImageBMP
+// 
+//****************************************************************
+int SaveImageBMP(WCHAR* Filename,COLORREF* Image, int ImageXextent, int ImageYextent) {
+    if (wcslen(Filename) == 0) {
+        return APPERR_PARAMETER;
+    }
+
+    int biWidth;
+    int Stride;
+    int BMPimageBytes;
+    BYTE* BMPimage = NULL;
+
+    // correct for odd column size
+
+    biWidth = ImageXextent;
+    if (biWidth % 2 != 0) {
+        // make sure bitmap width is even
+        biWidth++;
+    }
+
+    // BMP files have a specific requirement for # of bytes per line
+    // This is called stride.  The formula used is from the specification. 
+    Stride = ((((biWidth * 24) + 31) & ~31) >> 3); // 24 bpp
+    BMPimageBytes = Stride * ImageYextent; // size of image in bytes
+
+    // allocate zero paddded image array
+    BMPimage = (BYTE*)calloc(BMPimageBytes, 1);
+    if (BMPimage == NULL) {
+        return APPERR_MEMALLOC;
+    }
+
+    int BMPOffset;
+    int Offset;
+    union {
+        COLORREF Color;
+        RGBQUAD rgb;
+    } iColor;
+
+    // copy input COLORREF image to BMPimage DIB format
+    for (int y = 0; y < ImageYextent; y++) {
+        Offset = y * ImageXextent;
+        BMPOffset = y * Stride;
+        for (int x = 0; x < ImageXextent; x++) {
+            iColor.Color = Image[Offset + x];
+            BMPimage[BMPOffset + (x * 3)] = iColor.rgb.rgbRed;
+            BMPimage[BMPOffset + (x * 3) + 1] = iColor.rgb.rgbGreen;
+            BMPimage[BMPOffset + (x * 3) + 2] = iColor.rgb.rgbBlue;
+        }
+    }
+
+    // fill in BMPheader
+    BITMAPFILEHEADER BMPheader;
+
+    BMPheader.bfType = 0x4d42;  // required ID
+    BMPheader.bfSize = (DWORD)(sizeof(BMPheader) + sizeof(BITMAPINFOHEADER)) + BMPimageBytes;
+    BMPheader.bfReserved1 = 0;
+    BMPheader.bfReserved2 = 0;
+    BMPheader.bfOffBits = (DWORD)(sizeof(BMPheader) + sizeof(BITMAPINFOHEADER));
+
+    // fill in BMPinfoheader
+    BITMAPINFOHEADER BMPinfoheader;
+
+    BMPinfoheader.biSize = (DWORD)sizeof(BMPinfoheader);
+    BMPinfoheader.biWidth = (LONG)biWidth; // calculated and then padded if needed
+    BMPinfoheader.biHeight = (LONG)-ImageYextent;
+    BMPinfoheader.biPlanes = 1;
+    BMPinfoheader.biBitCount = 24;
+    BMPinfoheader.biCompression = BI_RGB;
+    BMPinfoheader.biSizeImage = BMPimageBytes;
+    BMPinfoheader.biXPelsPerMeter = 2834;
+    BMPinfoheader.biYPelsPerMeter = 2834;
+    BMPinfoheader.biClrUsed = 0;
+    BMPinfoheader.biClrImportant = 0;
+
+    // write BMP file
+
+    FILE* Out;
+    errno_t ErrNum;
+    ErrNum = _wfopen_s(&Out, Filename, L"wb");
+    if (Out == NULL) {
+        free(BMPimage);
+        return APPERR_FILEOPEN;
+    }
+
+    // write the BMPheader
+    fwrite(&BMPheader, sizeof(BMPheader), 1, Out);
+
+    // write the BMPinfoheader
+    fwrite(&BMPinfoheader, sizeof(BMPinfoheader), 1, Out);
+
+    // write the image data
+    int Address = 0;
+    for (int i = 0; i < (int)BMPimageBytes; i++) {
+        fwrite(&BMPimage[i], 1, 1, Out);
+        Address++;
+    }
+
+    free(BMPimage);
+    fclose(Out);
+
+    return APP_SUCCESS;
+}

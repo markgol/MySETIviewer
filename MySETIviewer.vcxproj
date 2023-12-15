@@ -143,9 +143,11 @@
   <ItemGroup>
     <ClInclude Include="AppErrors.h" />
     <ClInclude Include="Appfunctions.h" />
+    <ClInclude Include="Display.h" />
     <ClInclude Include="FileFunctions.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Globals.h" />
+    <ClInclude Include="ImageDialog.h" />
     <ClInclude Include="imageheader.h" />
     <ClInclude Include="Layers.h" />
     <ClInclude Include="MySETIviewer.h" />
@@ -155,7 +157,9 @@
   <ItemGroup>
     <ClCompile Include="AboutDlg.cpp" />
     <ClCompile Include="AppFunctions.cpp" />
+    <ClCompile Include="Display.cpp" />
     <ClCompile Include="FileFunctions.cpp" />
+    <ClCompile Include="ImageDialog.cpp" />
     <ClCompile Include="ImageDlg.cpp" />
     <ClCompile Include="Layers.cpp" />
     <ClCompile Include="MySETIviewer.cpp" />

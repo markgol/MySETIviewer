@@ -20,7 +20,6 @@
 // 
 // V0.1.0.1 2023-12-08  Initial Pre Release
 // V0.3.0.1 2023-12-15  Changed Display dialog to modeless 
-//                      Removed globals DisplayResults, AutoScaleResults, DefaultRBG, AutoSize
 //
 // Global Settings dialog box handler
 // 
@@ -49,6 +48,7 @@ static HBRUSH hbrDefaultLayer = NULL;
 static BOOL Touched = FALSE;
 static HWND hLayerEnable = NULL;
 
+// local helper function
 int ReplaceListBoxEntry(HWND hDlg, int Control, int Selection, WCHAR* szString);
 
 //*******************************************************************************
@@ -236,21 +236,6 @@ INT_PTR CALLBACK SettingsDisplayDlg(HWND hDlg, UINT message, WPARAM wParam, LPAR
 
             return (INT_PTR)TRUE;
         }
-
-        case IDC_SCALE_RESET:
-        {
-            if (ImgDlg) {
-                ImgDlg->SetScale(1.0f);
-            }
-        }
-
-        case IDC_POS_RESET:
-        {
-            if (ImgDlg) {
-                ImgDlg->SetPan(1.0f, 1.0f);
-            }
-        }
-
         case IDC_APPLY:
         {
             BOOL bSuccess;
@@ -798,21 +783,6 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
         {
             int xnewsize, ynewsize;
             int iRes;
-            int x,y;
-            BOOL bSuccess;
-
-            x = GetDlgItemInt(hDlg, IDC_X_POS, &bSuccess, TRUE);
-            if (!bSuccess) {
-                MessageBox(hDlg, L"Invalid x position", L"Layers", MB_OK);
-                return (INT_PTR)TRUE;
-            }
-            y = GetDlgItemInt(hDlg, IDC_Y_POS, &bSuccess, TRUE);
-            if (!bSuccess) {
-                MessageBox(hDlg, L"Invalid y position", L"Layers", MB_OK);
-                return (INT_PTR)TRUE;
-            }
-            
-            ImageLayers->SetLocation(ImageLayers->GetCurrentLayer(),x, y);
 
             iRes = ImageLayers->GetNewOverlaySize(&xnewsize, &ynewsize);
             if (iRes != APP_SUCCESS) {
@@ -1018,6 +988,18 @@ INT_PTR CALLBACK SettingsGlobalDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
         SetDlgItemText(hDlg, IDC_INI_FILE, strAppNameINI);
         SetDlgItemText(hDlg, IDC_EXE_FILE, strAppNameEXE);
 
+        //IDC_SETTINGS_DISPLAY_RESULTS
+        iRes = GetPrivateProfileInt(L"SettingsGlobalDlg", L"DisplayResults", 1, (LPCTSTR)strAppNameINI);
+        if (iRes != 0) {
+            CheckDlgButton(hDlg, IDC_SETTINGS_DISPLAY_RESULTS, BST_CHECKED);
+        }
+
+        // IDC_SETTINGS_AUTOSCALE_RESULTS
+        iRes = GetPrivateProfileInt(L"SettingsGlobalDlg", L"AutoScaleResults", 1, (LPCTSTR)strAppNameINI);
+        if (iRes != 0) {
+            CheckDlgButton(hDlg, IDC_SETTINGS_AUTOSCALE_RESULTS, BST_CHECKED);
+        }
+
         // IDC_SETTINGS_AUTO_PNG
         iRes = GetPrivateProfileInt(L"SettingsGlobalDlg", L"AutoPNG", 1, (LPCTSTR)strAppNameINI);
         if (iRes != 0) {
@@ -1087,6 +1069,26 @@ INT_PTR CALLBACK SettingsGlobalDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             wcscpy_s(szTempDir, szString);
             WritePrivateProfileString(L"SettingsGlobalDlg", L"TempDir", szString, (LPCTSTR)strAppNameINI);
 
+            //IDC_SETTINGS_DISPLAY_RESULTS
+            if (IsDlgButtonChecked(hDlg, IDC_SETTINGS_DISPLAY_RESULTS) == BST_CHECKED) {
+                WritePrivateProfileString(L"SettingsGlobalDlg", L"DisplayResults", L"1", (LPCTSTR)strAppNameINI);
+                DisplayResults = 1;
+            }
+            else {
+                WritePrivateProfileString(L"SettingsGlobalDlg", L"DisplayResults", L"0", (LPCTSTR)strAppNameINI);
+                DisplayResults = 0;
+            }
+
+            // IDC_SETTINGS_AUTOSCALE_RESULTS
+            if (IsDlgButtonChecked(hDlg, IDC_SETTINGS_AUTOSCALE_RESULTS) == BST_CHECKED) {
+                WritePrivateProfileString(L"SettingsGlobalDlg", L"AutoScaleResults", L"1", (LPCTSTR)strAppNameINI);
+                AutoScaleResults = 1;
+            }
+            else {
+                WritePrivateProfileString(L"SettingsGlobalDlg", L"AutoScaleResults", L"0", (LPCTSTR)strAppNameINI);
+                AutoScaleResults = 0;
+            }
+
             // IDC_SETTINGS_AUTO_PNG
             if (IsDlgButtonChecked(hDlg, IDC_SETTINGS_AUTO_PNG) == BST_CHECKED) {
                 WritePrivateProfileString(L"SettingsGlobalDlg", L"AutoPNG", L"1", (LPCTSTR)strAppNameINI);
@@ -1108,4 +1110,20 @@ INT_PTR CALLBACK SettingsGlobalDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
     }
 
     return (INT_PTR)FALSE;
+}
+
+//*******************************************************************************
+//
+// ReplaceListBoxEntry()
+// 
+//*******************************************************************************
+int ReplaceListBoxEntry(HWND hDlg, int Control, int Selection, WCHAR* szString)
+{
+    HWND ListHwnd = GetDlgItem(hDlg, Control);
+
+    // remove from combo box list
+    SendMessage(ListHwnd, LB_DELETESTRING, Selection, (LPARAM)szString);
+    SendMessage(ListHwnd, LB_INSERTSTRING, Selection, (LPARAM)szString);
+    SendMessage(ListHwnd, LB_SETCURSEL, Selection, 0);
+    return APP_SUCCESS;
 }

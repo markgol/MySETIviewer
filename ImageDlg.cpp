@@ -19,12 +19,10 @@
 // This file contains the dialog callback procedures for the image dialog
 // 
 // V0.1.0.1 2023-11-27  Initial Pre Release
+// V0.3.0.1 2023-12-14  Correcting behaviour of repaint, window position saving/restoring
 //
-// This is the main functional part of MySETIviewer
-// This handles all the display image operations
-// 
-// This is being replaced
-// 
+// This handles all the actual display of the bitmap generated
+//
 #include "framework.h"
 #include "resource.h"
 #include <shobjidl.h>
@@ -33,23 +31,12 @@
 #include <atlstr.h>
 #include <strsafe.h>
 #include <shellapi.h>
+#include <d2d1.h>
+#include <d2d1_1.h>
+#pragma comment(lib, "d2d1.lib")
 #include "globals.h"
 #include "AppFunctions.h"
-
-//size of the bitmap for the entire display
-int DisplayXextent = 0;
-int DisplayYextent = 0;
-// size of the Image extent (the size of the image after all images are overlyed)
-int ImageXextent = 16;
-int ImageYextent = 8;
-
-// number of gaps major and minor
-int NumberMajorXgap = 0;
-int NumberMinorXgap = 0;
-int NumberMajorYgap = 0;
-int NumberMinorYgap = 0;
-
-void CalculateDisplayExtent(void);
+#include "ImageDialog.h"
 
 //*******************************************************************************
 //
@@ -63,11 +50,12 @@ INT_PTR CALLBACK ImageDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     //    UNREFERENCED_PARAMETER(lParam);
     switch (message)
     {
+
     case WM_INITDIALOG:
     {
+        ImgDlg->InitializeDirect2D();
         CString csString = L"ImageWindow";
         RestoreWindowPlacement(hDlg, csString);
-
         return (INT_PTR)TRUE;
     }
 
@@ -75,63 +63,87 @@ INT_PTR CALLBACK ImageDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         switch (LOWORD(wParam)) {
 
         case IDCANCEL:
-            if (!DisplayResults) {
-                DestroyWindow(hwndImage);
-                hwndImage = NULL;
-            }
-            else {
-                ShowWindow(hwndImage, SW_HIDE);
-            }
+        {
+            // save window position/size data
+            CString csString = L"ImageWindow";
+            SaveWindowPlacement(hDlg, csString);
+            ShowWindow(hwndImage, SW_HIDE);
             return (INT_PTR)TRUE;
+        }
 
         case IDC_GENERATE_BMP:
         {
-            // This was the old way
+            int xsize, ysize;
+            COLORREF* Image;
+            Displays->GetDisplay(&Image, &xsize, &ysize);
             
-            // Initialize COM
-            HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-
-            // use the default Windows viewer for BMP file
-            ShellExecute(hDlg, 0, szBMPFilename, 0, 0, SW_NORMAL);
-
-            // release COM
-            CoUninitialize();
-
-            // The new way uses Direct2D to set and render the displau screen
-
-
+            if(ImgDlg->LoadCOLORREFimage(hwndImage, xsize, xsize,Image)) {
+                ImgDlg->Repaint();
+            }
             return (INT_PTR)TRUE;
         }
 
         default:
             return (INT_PTR)FALSE;
-        }
-    case WM_PAINT:
+        } // end of WM_COMMAND
+        
+    case WM_WINDOWPOSCHANGED:
     {
-        // redraw image as required
-        PAINTSTRUCT ps;
-        RECT rc;
-        HDC hDC;
-        if (GetUpdateRect(hDlg, &rc, 0)) {
-            hDC = BeginPaint(hDlg, &ps);
-            if (hDC == NULL) {
-                break;
-            }
-            TextOut(hDC, 40, 20, szBMPFilename, (int)wcslen(szBMPFilename));
-            TextOut(hDC, 40, 40, L"using external BMP viewer", 25);
-            EndPaint(hDlg, &ps);
+        ImgDlg->Repaint();
+    }
+
+    case WM_WINDOWPOSCHANGING:
+    {
+        WINDOWPOS* wpos = (WINDOWPOS*)lParam;
+        float AspectRatio;
+        int x, y;
+
+        // maintain aspect ratio
+        if (Displays && Displays->GetSize(&x, &y)) {
+            AspectRatio = (float)x / (float)y;
+            wpos->cy = (int)((float)wpos->cx / AspectRatio);
+        }
+        else {
+            // don't sohw window is ther is nothing to show
+            wpos->flags &= ~SWP_SHOWWINDOW;
+        }
+        return 0;
+    }
+
+    case WM_MOUSEWHEEL:
+    {
+        ImgDlg->Rescale(GET_WHEEL_DELTA_WPARAM(wParam));
+        ImgDlg->Repaint();
+        break;
+    }
+
+    case WM_MOUSEMOVE:
+    {
+        if (ImgDlg->PanImage(LOWORD(lParam), HIWORD(lParam))) {
+            ImgDlg->Repaint();
         }
         break;
     }
 
+    case WM_LBUTTONDOWN:
+        ImgDlg->EnablePanning(TRUE);
+        SetCapture(hDlg); // Capture the mouse input to receive WM_MOUSEMOVE even if the mouse is outside the window
+        break;
+
+    case WM_LBUTTONUP:
+        ImgDlg->EnablePanning(FALSE);
+        ReleaseCapture(); // Release the mouse input capture
+        break;
+
     case WM_DESTROY:
     {
-        // save window position/size data
-        CString csString = L"ImageWindow";
-        SaveWindowPlacement(hDlg, csString);
+        // release Direct2D
+        ImgDlg->ReleaseDirect2D();
+        hwndImage = NULL;
         break;
     }
 
     }
     return (INT_PTR)FALSE;
 }
+

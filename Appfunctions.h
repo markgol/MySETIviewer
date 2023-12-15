@@ -13,4 +13,5 @@ BOOL GetProductAndVersion(CString* strProductName,
 
 INT GetEncoderClsid(const WCHAR* format, CLSID* pClsid);  // helper function
 void MessageMySETIviewerError(HWND hWnd, int ErrNo, const wchar_t* Title);
+int ReplaceListBoxEntry(HWND hDlg, int Control, int Selection, WCHAR* szString);
 

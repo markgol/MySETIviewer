@@ -46,6 +46,8 @@
 // Some function return TRUE/FALSE results
 // 
 // V0.1.0.1 2023-11-26, Initial pre-release
+// V0.3.0.1 2023-12-14  Added Listbox replace string function
+//
 #include "framework.h"
 #include "resource.h"
 #include <shobjidl.h>
@@ -443,3 +445,18 @@ void MessageMySETIviewerError(HWND hWnd, int ErrNo, const wchar_t* Title) {
     return;
 }
 
+//*******************************************************************************
+//
+// ReplaceListBoxEntry()
+// 
+//*******************************************************************************
+int ReplaceListBoxEntry(HWND hDlg, int Control, int Selection, WCHAR* szString)
+{
+    HWND ListHwnd = GetDlgItem(hDlg, Control);
+
+    // remove from combo box list
+    SendMessage(ListHwnd, LB_DELETESTRING, Selection, (LPARAM)szString);
+    SendMessage(ListHwnd, LB_INSERTSTRING, Selection, (LPARAM)szString);
+    SendMessage(ListHwnd, LB_SETCURSEL, Selection, 0);
+    return APP_SUCCESS;
+}

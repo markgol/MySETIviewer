@@ -20,8 +20,7 @@
 // This class handles the conifguration data and image memory
 // used in creating multiple image overlays for display
 // 
-// V0.1.0.1 2023-12-04	Initial pre release
-// V0.3.0.1 2023-12-13	Changes to help integrate Image Dialog requirements
+// V0.1.0.1 2023-12-04	Initial pre release 
 //
 // Application standardized error numbers for functions:
 //		See AppErrors.h

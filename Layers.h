@@ -39,8 +39,9 @@ private:
 	int LayerY[MAX_LAYERS] = { 0,0,0,0,0,0,0,0 };
 	BOOL Enabled[MAX_LAYERS] = { FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE };
 
-	COLORREF rgbDefaultColor = 0; // color used for Layer backgrounds when pixel is 0
+	COLORREF rgbBackgroundColor = 0; // color used for Layer backgrounds when pixel is 0
 	COLORREF rgbOverlayColor = 0; // color used for overlay background
+	COLORREF rgbDefaultLayerColor = 0;
 	COLORREF* OverlayImage = NULL;
 
 	int NumLayers = 0;
@@ -49,6 +50,8 @@ private:
 	int ImageYextent = 0;
 	int Xextent0 = 0;
 	int Yextent0 = 0;
+	int minOverlaySizeX = 512;
+	int minOverlaySizeY = 512;
 
 public:
 	// variables
@@ -85,8 +88,11 @@ public:
 	int GetLocation(int Layer, int* x, int* y);
 	int SetLocation(int Layer, int x, int y);
 
-	COLORREF GetDefaultColor(void);
-	void SetDefaultColor(COLORREF Color);
+	COLORREF GetBackgroundColor(void);
+	void SetBackgroundColor(COLORREF Color);
+
+	COLORREF GetDefaultLayerColor(void);
+	void SetDefaultLayerColor(COLORREF Color);
 
 	COLORREF GetOverlayColor(void);
 	void SetOverlayColor(COLORREF Color);
@@ -98,7 +104,11 @@ public:
 	int EnableLayer(int Layer);
 	BOOL IsLayerEnabled(int Layer);
 
+	void GetMinOverlaySize(int* x,int* y);
+	void SetMinOverlaySize(int x, int y);
+
 	int GetOverlayImage(COLORREF** OverlayImage, int* xsize, int* ysize);
 
 	int SaveBMP(WCHAR* Filename);
+
 };

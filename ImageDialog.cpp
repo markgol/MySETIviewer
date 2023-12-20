@@ -21,6 +21,7 @@
 // V0.1.0.1 2023-11-27  Initial Pre Release
 // V0.3.0.1 2023-12-15  Correcting behaviour of repaint, window position saving/restoring
 //						Moved ImageDialog class definitions to ImageDialog.h, ImageDialog.cpp
+// V0.4.0.1 2023-12-18  Corrected WM_MOUSEMOVE, get x,y mouse position
 //
 // This handles all the actual display of the bitmap generated
 //
@@ -117,10 +118,10 @@ BOOL ImageDialog::LoadCOLORREFimage(HWND hWnd, int xsize, int ysize, COLORREF* I
 
     if (pRenderTarget) {
         bitmapProperties.pixelFormat = D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM,
-            D2D1_ALPHA_MODE_IGNORE);
+                                                         D2D1_ALPHA_MODE_IGNORE);
         HRESULT hRes = pRenderTarget->CreateBitmap(D2D1::SizeU(xsize, ysize), Image,
-            xsize * sizeof(COLORREF),
-            bitmapProperties, &pBitmap);
+                                        xsize * sizeof(COLORREF),
+                                        bitmapProperties, &pBitmap);
         if (FAILED(hRes)) {
             if (pBitmap) {
                 pBitmap->Release();
@@ -230,14 +231,19 @@ void ImageDialog::EnablePanning(BOOL Enable)
 BOOL ImageDialog::PanImage(int x, int y)
 {
     if (isPanning) {
-        float deltaX = static_cast<float>(x - lastMousePos.x) / scaleFactor;
-        float deltaY = static_cast<float>(y - lastMousePos.y) / scaleFactor;
-        panOffset.x -= deltaX;
-        panOffset.y -= deltaY;
+        if (x > 0) {
+            float deltaX = static_cast<float>(x - lastMousePos.x) / scaleFactor;
+            panOffset.x -= deltaX;
+        }
+        if (y > 0) {
+            float deltaY = static_cast<float>(y - lastMousePos.y) / scaleFactor;
+            panOffset.y -= deltaY;
+        }       
     }
-
+    
     lastMousePos.x = x;
     lastMousePos.y = y;
+ 
     return isPanning;
 }
 

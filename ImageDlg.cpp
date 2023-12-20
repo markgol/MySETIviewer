@@ -27,6 +27,7 @@
 #include "resource.h"
 #include <shobjidl.h>
 #include <winver.h>
+#include <windowsx.h>
 #include <vector>
 #include <atlstr.h>
 #include <strsafe.h>
@@ -119,7 +120,8 @@ INT_PTR CALLBACK ImageDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
     case WM_MOUSEMOVE:
     {
-        if (ImgDlg->PanImage(LOWORD(lParam), HIWORD(lParam))) {
+        //if (ImgDlg->PanImage(LOWORD(lParam), HIWORD(lParam))) {
+        if (ImgDlg->PanImage(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam))) {
             ImgDlg->Repaint();
         }
         break;

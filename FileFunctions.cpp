@@ -1546,3 +1546,254 @@ int SaveImageBMP(WCHAR* Filename,COLORREF* Image, int ImageXextent, int ImageYex
 
     return APP_SUCCESS;
 }
+
+//****************************************************************
+//
+//  LoadBMPfile
+// 
+//****************************************************************
+int  LoadBMPfile(int** ImagePtr, WCHAR* InputFilename, IMAGINGHEADER* ImgHeader)
+{
+    // open BMP file
+    FILE* BMPfile;
+    errno_t ErrNum;
+    int iRes;
+
+    ErrNum = _wfopen_s(&BMPfile, InputFilename, L"rb");
+    if (!BMPfile) {
+        return APPERR_FILEOPEN;
+    }
+
+    // read BMP headers
+    BITMAPFILEHEADER BMPheader;
+    BITMAPINFOHEADER BMPinfoheader;
+    int StrideLen;
+    int* Image;
+    BYTE* Stride;
+
+    iRes = (int)fread(&BMPheader, sizeof(BITMAPFILEHEADER), 1, BMPfile);
+    if (iRes != 1) {
+        fclose(BMPfile);
+        return APPERR_FILETYPE;
+    }
+
+    iRes = (int)fread(&BMPinfoheader, sizeof(BITMAPINFOHEADER), 1, BMPfile);
+    if (iRes != 1) {
+        fclose(BMPfile);
+        return APPERR_FILETYPE;
+    }
+
+    // verify this type of file can be imported
+    if (BMPheader.bfType != 0x4d42 || BMPheader.bfReserved1 != 0 || BMPheader.bfReserved2 != 0) {
+        // this is not a BMP file
+        fclose(BMPfile);
+        return APPERR_FILETYPE;
+    }
+    if (BMPinfoheader.biSize != sizeof(BITMAPINFOHEADER)) {
+        // this is not a BMP file
+        fclose(BMPfile);
+        return APPERR_FILETYPE;
+    }
+
+    if (BMPinfoheader.biCompression != BI_RGB) {
+        // this is wrong type of BMP file
+        fclose(BMPfile);
+        return APPERR_PARAMETER;
+    }
+    if (BMPinfoheader.biBitCount != 1 && BMPinfoheader.biBitCount != 8 &&
+        BMPinfoheader.biBitCount != 24 && BMPinfoheader.biPlanes != 1) {
+        // this is wrong type of BMP file
+        fclose(BMPfile);
+        return APPERR_PARAMETER;
+    }
+
+    // read in image
+    int BMPimageBytes;
+    int TopDown = 1;
+    if (BMPinfoheader.biHeight < 0) {
+        TopDown = 0;
+        BMPinfoheader.biHeight = -BMPinfoheader.biHeight;
+    }
+
+    // BMP files have a specific requirement for # of bytes per line
+    // This is called stride.  The formula used is from the specification.
+    StrideLen = ((((BMPinfoheader.biWidth * BMPinfoheader.biBitCount) + 31) & ~31) >> 3); // 24 bpp
+    BMPimageBytes = StrideLen * BMPinfoheader.biHeight; // size of image in bytes
+
+    // allocate stride
+    Stride = new BYTE[(size_t)StrideLen];
+    if (Stride == NULL) {
+        fclose(BMPfile);
+        return APPERR_MEMALLOC;
+    }
+
+    int NumFrames = 1;
+
+    if (BMPinfoheader.biBitCount == 1) {
+        // This is bit image, has color table, 2 entries
+        // Skip the 2 RGBQUAD entries
+        if (fseek(BMPfile, sizeof(RGBQUAD) * 2, SEEK_CUR) != 0) {
+            delete[] Stride;
+            fclose(BMPfile);
+            return APPERR_FILETYPE;
+        }
+        int BitCount;
+        int StrideIndex;
+        int Offset;
+
+        // allocate Image
+        // alocate array of 'int's to receive image
+        Image = new int[(size_t)BMPinfoheader.biWidth * (size_t)BMPinfoheader.biHeight];
+        if (Image == NULL) {
+            delete[] Stride;
+            fclose(BMPfile);
+            return APPERR_MEMALLOC;
+        }
+
+        // BMPimage of BMPimageBytes
+        for (int y = 0; y < BMPinfoheader.biHeight; y++) {
+            // read stride
+            iRes = (int)fread(Stride, 1, StrideLen, BMPfile);
+            if (iRes != StrideLen) {
+                delete[] Image;
+                delete[] Stride;
+                fclose(BMPfile);
+                return APPERR_FILETYPE;
+            }
+            BitCount = 0;
+            StrideIndex = 0;
+            if (TopDown) {
+                Offset = ((BMPinfoheader.biHeight - 1) - y) * BMPinfoheader.biWidth;
+            }
+            else {
+                Offset = y * BMPinfoheader.biWidth;
+            }
+            for (int x = 0; x < BMPinfoheader.biWidth; x++) {
+                // split out bit by bit
+                Image[Offset + x] = Stride[StrideIndex] & (0x80 >> BitCount);
+                if (Image[Offset + x] != 0) {
+                    Image[Offset + x] = 1;
+                }
+                else {
+                    Image[Offset + x] = 0;
+                }
+                BitCount++;
+                if (BitCount == 8) {
+                    BitCount = 0;
+                    StrideIndex++;
+                }
+            }
+        }
+    }
+    else if (BMPinfoheader.biBitCount == 8) {
+        // this is a byte image, has color table, 256 entries
+        // Skip the 256 RGBQUAD entries
+        if (fseek(BMPfile, sizeof(RGBQUAD) * 256, SEEK_CUR) != 0) {
+            delete[] Stride;
+            fclose(BMPfile);
+            return APPERR_FILETYPE;
+        }
+
+        // allocate Image
+        // alocate array of 'int's to receive image
+        Image = new int[(size_t)BMPinfoheader.biWidth * (size_t)BMPinfoheader.biHeight];
+        if (Image == NULL) {
+            delete[] Stride;
+            fclose(BMPfile);
+            return APPERR_MEMALLOC;
+        }
+
+        // BMPimage of BMPimageBytes
+        int Offset;
+
+        for (int y = 0; y < BMPinfoheader.biHeight; y++) {
+            // read stride
+            iRes = (int)fread(Stride, 1, StrideLen, BMPfile);
+            if (iRes != StrideLen) {
+                delete[] Image;
+                delete[] Stride;
+                fclose(BMPfile);
+                return APPERR_FILETYPE;
+            }
+            if (TopDown) {
+                Offset = ((BMPinfoheader.biHeight - 1) - y) * BMPinfoheader.biWidth;
+            }
+            else {
+                Offset = y * BMPinfoheader.biWidth;
+            }
+
+            for (int x = 0; x < BMPinfoheader.biWidth; x++) {
+                Image[Offset + x] = Stride[x];
+            }
+        }
+    }
+    else {
+        // this is a 24 bit, RGB image
+        // The color table is biClrUsed long
+        if (BMPinfoheader.biClrUsed != 0) {
+            // skip the color table if present
+            if (fseek(BMPfile, sizeof(RGBQUAD) * BMPinfoheader.biClrUsed, SEEK_CUR) != 0) {
+                delete[] Stride;
+                fclose(BMPfile);
+                return APPERR_FILETYPE;
+            }
+        }
+
+        Image = new int[(size_t)BMPinfoheader.biWidth * (size_t)BMPinfoheader.biHeight];
+        if (Image == NULL) {
+            delete[] Stride;
+            fclose(BMPfile);
+            return APPERR_MEMALLOC;
+        }
+
+        // BMPimage of BMPimageBytes
+        int Offset;
+        int RedFrame = 0;
+        int GreenFrame = BMPinfoheader.biHeight * BMPinfoheader.biWidth;
+        int BlueFrame = BMPinfoheader.biHeight * BMPinfoheader.biWidth * 2;
+
+        for (int y = 0; y < BMPinfoheader.biHeight; y++) {
+            // read stride
+            iRes = (int)fread(Stride, 1, StrideLen, BMPfile);
+            if (iRes != StrideLen) {
+                delete[] Image;
+                delete[] Stride;
+                fclose(BMPfile);
+                return APPERR_FILETYPE;
+            }
+            if (TopDown) {
+                Offset = ((BMPinfoheader.biHeight - 1) - y) * BMPinfoheader.biWidth;
+            }
+            else {
+                Offset = y * BMPinfoheader.biWidth;
+            }
+
+            for (int x = 0; x < BMPinfoheader.biWidth; x++) {
+                Image[Offset + x] = ((int)Stride[x * 3 + 0]) | ((int)Stride[x * 3 + 1]<<8) || ((int)Stride[x * 3 + 2]<<16);
+            }
+        }
+    }
+
+    delete[] Stride;
+    fclose(BMPfile);
+
+    // save image
+    ImgHeader->Endian = (short)-1;  // PC format
+    ImgHeader->HeaderSize = (short)sizeof(IMAGINGHEADER);
+    ImgHeader->ID = (short)0xaaaa;
+    ImgHeader->Version = (short)1;
+    ImgHeader->NumFrames = (short)1;
+    ImgHeader->PixelSize = (short)1;
+    ImgHeader->Xsize = BMPinfoheader.biWidth;
+    ImgHeader->Ysize = BMPinfoheader.biHeight;
+    ImgHeader->Padding[0] = 0;
+    ImgHeader->Padding[1] = 0;
+    ImgHeader->Padding[2] = 0;
+    ImgHeader->Padding[3] = 0;
+    ImgHeader->Padding[4] = 0;
+    ImgHeader->Padding[5] = 0;
+
+    *ImagePtr = Image;
+
+    return APP_SUCCESS;
+}

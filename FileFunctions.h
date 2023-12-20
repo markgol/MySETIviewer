@@ -8,6 +8,7 @@ BOOL CCFileOpen(HWND hWnd, LPWSTR pszCurrentFilename, LPWSTR* pszFilename,
 BOOL bSelectFolder, int NumTypes, COMDLG_FILTERSPEC* FileTypes, LPCWSTR szDefExt);
 int ReadImageHeader(WCHAR* Filename, IMAGINGHEADER* ImageHeader);
 int LoadImageFile(int** ImagePtr, WCHAR* ImagingFilename, IMAGINGHEADER* Header);
+int LoadBMPfile(int** ImagePtr, WCHAR* InputFilename, IMAGINGHEADER* ImgHeader);
 int SaveBMP(WCHAR* Filename, WCHAR* InputFile, int RGBframes, int AutoScale);
 int SaveTXT(WCHAR* Filename, WCHAR* InputFile);
 int HEX2Binary(HWND hWnd);

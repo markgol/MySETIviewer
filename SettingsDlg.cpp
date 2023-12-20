@@ -19,8 +19,10 @@
 // This file contains the dialog callback procedures for settings dialogs; Display and Layers
 // 
 // V0.1.0.1 2023-12-08  Initial Pre Release
-// V0.3.0.1 2023-12-15  Changed Display dialog to modeless 
-//                      Removed globals DisplayResults, AutoScaleResults, DefaultRBG, AutoSize
+// V0.3.0.1 2023-12-15  Removed globals DisplayResults, AutoScaleResults, DefaultRBG, AutoSize
+// V.04.0.1 2023-12-15  Changed Display dialog to modeless
+//                      Changed +/- and change color buttons to also Apply results
+// V.04.1.1 2023-12-15  Added builtin blank layer that can be used as largest image size
 //
 // Global Settings dialog box handler
 // 
@@ -41,15 +43,23 @@
 #include "Appfunctions.h"
 
 // local statics
+
+// Display class brushes
 static HBRUSH hbrBackground = NULL;
 static HBRUSH hbrGapMajor = NULL;
 static HBRUSH hbrGapMinor = NULL;
+
+// Layer class brushes
 static HBRUSH hbrSelectedLayer = NULL;
-static HBRUSH hbrDefaultLayer = NULL;
+static HBRUSH hbrBackgroundLayer = NULL;
+static HBRUSH hbrOverlayLayer = NULL;
+
 static BOOL Touched = FALSE;
 static HWND hLayerEnable = NULL;
 
 int ReplaceListBoxEntry(HWND hDlg, int Control, int Selection, WCHAR* szString);
+void ApplyLayers(HWND hDlg);
+void ApplyDisplay(HWND hDlg);
 
 //*******************************************************************************
 //
@@ -95,11 +105,15 @@ INT_PTR CALLBACK SettingsDisplayDlg(HWND hDlg, UINT message, WPARAM wParam, LPAR
         // IDC_BACKGROUND
         // IDC_GAP_MAJOR
         // IDC_GAP_MINOR
+        
+        CString csString = L"ImageDisplay";
+        RestoreWindowPlacement(hDlg, csString);
 
         return (INT_PTR)TRUE;
     }
 
     case WM_DESTROY:
+
         // must destroy any brushes created
 
         if (hbrBackground) {
@@ -114,6 +128,8 @@ INT_PTR CALLBACK SettingsDisplayDlg(HWND hDlg, UINT message, WPARAM wParam, LPAR
             DeleteObject(hbrGapMinor);
             hbrGapMinor = NULL;
         }
+        hwndDisplay = NULL;
+
         return (INT_PTR)TRUE;
 
     case WM_CTLCOLORSTATIC:
@@ -128,7 +144,7 @@ INT_PTR CALLBACK SettingsDisplayDlg(HWND hDlg, UINT message, WPARAM wParam, LPAR
         hControl = (HANDLE)lParam;
 
         HANDLE hThis;
-        
+
         hThis = GetDlgItem(hDlg, IDC_BACKGROUND);
         if (hThis == hControl) {
             if (hbrBackground) {
@@ -159,7 +175,6 @@ INT_PTR CALLBACK SettingsDisplayDlg(HWND hDlg, UINT message, WPARAM wParam, LPAR
     }
 
     case WM_COMMAND:
-
         switch (LOWORD(wParam)) {
 
         case IDC_BACKGROUND_COLOR:
@@ -179,11 +194,19 @@ INT_PTR CALLBACK SettingsDisplayDlg(HWND hDlg, UINT message, WPARAM wParam, LPAR
 
             if (ChooseColorW(&cc) == TRUE)
             {
+
+                if (cc.rgbResult == Displays->GetGapMajorColor() || cc.rgbResult == Displays->GetGapMinorColor()) {
+                    MessageBox(hDlg, L"Background color must be different from gaps color\nrecommend RGB = 2,2,2", L"Display", MB_OK);
+                    return (INT_PTR)TRUE;
+                }
+                
                 Displays->SetBackgroundColor((COLORREF)cc.rgbResult);
             }
             // force redraw static control
             SetDlgItemText(hDlg, IDC_BACKGROUND, L"");
-
+            if (ImageLayers->GetNumLayers() > 0) {
+                ApplyDisplay(hDlg);
+            }
             return (INT_PTR)TRUE;
         }
 
@@ -202,13 +225,19 @@ INT_PTR CALLBACK SettingsDisplayDlg(HWND hDlg, UINT message, WPARAM wParam, LPAR
             cc.rgbResult = (DWORD)Displays->GetGapMajorColor();
             cc.Flags = CC_FULLOPEN | CC_RGBINIT;
 
-            if (ChooseColorW(&cc) == TRUE)
-            {
+            if (ChooseColorW(&cc) == TRUE) {
+                if (cc.rgbResult == Displays->GetBackgroundColor()) {
+                    MessageBox(hDlg, L"Major gap color must be different from Background color\nrecommend RGB = 81,0,40", L"Display", MB_OK);
+                    return (INT_PTR)TRUE;
+                }
                 Displays->SetGapMajorColor((COLORREF)cc.rgbResult);
             }
+
             // force redraw static control
             SetDlgItemText(hDlg, IDC_GAP_MAJOR, L"");
-
+            if (ImageLayers->GetNumLayers() > 0) {
+                ApplyDisplay(hDlg);
+            }
             return (INT_PTR)TRUE;
         }
 
@@ -227,13 +256,18 @@ INT_PTR CALLBACK SettingsDisplayDlg(HWND hDlg, UINT message, WPARAM wParam, LPAR
             cc.rgbResult = (DWORD)Displays->GetGapMinorColor();
             cc.Flags = CC_FULLOPEN | CC_RGBINIT;
 
-            if (ChooseColorW(&cc) == TRUE)
-            {
+            if (ChooseColorW(&cc) == TRUE) {
+                if (cc.rgbResult == Displays->GetBackgroundColor()) {
+                    MessageBox(hDlg, L"Minor gap color must be different from Background color\nrecommend RGB = 15,15,15", L"Display", MB_OK);
+                    return (INT_PTR)TRUE;
+                }
                 Displays->SetGapMinorColor((COLORREF)cc.rgbResult);
             }
             // force redraw static control
             SetDlgItemText(hDlg, IDC_GAP_MINOR, L"");
-
+            if (ImageLayers->GetNumLayers() > 0) {
+                ApplyDisplay(hDlg);
+            }
             return (INT_PTR)TRUE;
         }
 
@@ -253,55 +287,12 @@ INT_PTR CALLBACK SettingsDisplayDlg(HWND hDlg, UINT message, WPARAM wParam, LPAR
 
         case IDC_APPLY:
         {
-            BOOL bSuccess;
-            int x, y;
-
-            // IDC_GRID_X_MAJOR
-            x = GetDlgItemInt(hDlg, IDC_GRID_X_MAJOR, &bSuccess, TRUE);
-            // IDC_GRID_Y_MAJOR
-            y = GetDlgItemInt(hDlg, IDC_GRID_Y_MAJOR, &bSuccess, TRUE);
-            Displays->SetGridMajor(x, y);
-
-            // IDC_GRID_X_MINOR
-            x = GetDlgItemInt(hDlg, IDC_GRID_X_MINOR, &bSuccess, TRUE);
-            // IDC_GRID_Y_MINOR
-            y = GetDlgItemInt(hDlg, IDC_GRID_Y_MINOR, &bSuccess, TRUE);
-            Displays->SetGridMinor(x, y);
-
-            // IDC_GAP_X_MAJOR
-            x = GetDlgItemInt(hDlg, IDC_GAP_X_MAJOR, &bSuccess, TRUE);
-            // IDC_GAP_Y_MAJOR
-            y = GetDlgItemInt(hDlg, IDC_GAP_Y_MAJOR, &bSuccess, TRUE);
-            Displays->SetGapMajor(x, y);
-
-            // IDC_GAP_X_MINOR
-            x = GetDlgItemInt(hDlg, IDC_GAP_X_MINOR, &bSuccess, TRUE);
-            // IDC_GAP_Y_MINOR
-            y = GetDlgItemInt(hDlg, IDC_GAP_Y_MINOR, &bSuccess, TRUE);
-            Displays->SetGapMinor(x, y);
-
-            COLORREF* Overlay;
-            int xsize, ysize;
-            int iRes;
-            iRes = ImageLayers->GetOverlayImage(&Overlay, &xsize, &ysize);
-            if (iRes == APP_SUCCESS) {
-                int iRes;
-                Displays->CalculateDisplayExtent(xsize,ysize);
-                iRes = Displays->CreateDisplayImages();
-                if (iRes != APP_SUCCESS) {
-                    MessageMySETIviewerError(hDlg, iRes, L"Display 0 gap parameter");
-                    return (INT_PTR)TRUE;
-                }
-                iRes = Displays->UpdateDisplay(Overlay, xsize, ysize);
-                if (hwndImage != NULL) {
-                    PostMessage(hwndImage, WM_COMMAND, IDC_GENERATE_BMP, 0l);
-                    ShowWindow(hwndImage, SW_SHOW);
-                }
-            }
-            else {
+            if (ImageLayers->GetNumLayers() <= 0) {
                 MessageBox(hDlg, L"Nothing to display\nLoad and apply layers first", L"Display", MB_OK);
+                return (INT_PTR)TRUE;
             }
 
+            ApplyDisplay(hDlg);
             return (INT_PTR)TRUE;
         }
 
@@ -365,19 +356,133 @@ INT_PTR CALLBACK SettingsDisplayDlg(HWND hDlg, UINT message, WPARAM wParam, LPAR
                 swprintf_s(CustomColor, 20, L"CustomColorTable%d", i);
                 swprintf_s(szString, MAX_PATH, L"%u", CustomColorTable[i]);
                 WritePrivateProfileString(L"SettingsDlg", CustomColor, szString, (LPCTSTR)strAppNameINI);
-            }    
+            }
 
-            EndDialog(hDlg, LOWORD(wParam));
+            CString csString = L"DisplayWindow";
+            SaveWindowPlacement(hwndDisplay, csString);
+            ShowWindow(hDlg, SW_HIDE);
             return (INT_PTR)TRUE;
         }
 
         case IDCANCEL:
-            EndDialog(hDlg, LOWORD(wParam));
+        {
+            // These are class Display settings
+            COLORREF BackGroundColor = (COLORREF)GetPrivateProfileInt(L"SettingsDisplayDlg", L"rgbBackground", 0, (LPCTSTR)strAppNameINI);
+            COLORREF GapMajorColor = (COLORREF)GetPrivateProfileInt(L"SettingsDisplayDlg", L"rgbGapMajor", 0, (LPCTSTR)strAppNameINI);
+            COLORREF GapMinorColor = (COLORREF)GetPrivateProfileInt(L"SettingsDisplayDlg", L"rgbGapMinor", 0, (LPCTSTR)strAppNameINI);
+            Displays->SetColors(BackGroundColor, GapMajorColor, GapMinorColor);
+
+            int ValueX, ValueY;
+            ValueX = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GridXmajor", 4, (LPCTSTR)strAppNameINI);
+            ValueY = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GridYmajor", 2, (LPCTSTR)strAppNameINI);
+            Displays->SetGridMajor(ValueX, ValueY);
+
+            ValueX = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GridXminor", 2, (LPCTSTR)strAppNameINI);
+            ValueY = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GridYminor", 2, (LPCTSTR)strAppNameINI);
+            Displays->SetGridMinor(ValueX, ValueY);
+
+            ValueX = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GapXmajor", 2, (LPCTSTR)strAppNameINI);
+            ValueY = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GapYmajor", 2, (LPCTSTR)strAppNameINI);
+            Displays->SetGapMajor(ValueX, ValueY);
+
+            ValueX = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GapXminor", 1, (LPCTSTR)strAppNameINI);
+            ValueY = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GapYminor", 1, (LPCTSTR)strAppNameINI);
+            Displays->SetGapMinor(ValueX, ValueY);
+
+            int x, y;
+            Displays->GetGridMajor(&x, &y);
+            // IDC_GRID_X_MAJOR
+            SetDlgItemInt(hDlg, IDC_GRID_X_MAJOR, x, TRUE);
+            // IDC_GRID_Y_MAJOR
+            SetDlgItemInt(hDlg, IDC_GRID_Y_MAJOR, y, TRUE);
+
+            Displays->GetGridMinor(&x, &y);
+            // IDC_GRID_X_MINOR
+            SetDlgItemInt(hDlg, IDC_GRID_X_MINOR, x, TRUE);
+            // IDC_GRID_Y_MINOR
+            SetDlgItemInt(hDlg, IDC_GRID_Y_MINOR, y, TRUE);
+
+            Displays->GetGapMajor(&x, &y);
+            // IDC_GAP_X_MAJOR
+            SetDlgItemInt(hDlg, IDC_GAP_X_MAJOR, x, TRUE);
+            // IDC_GAP_Y_MAJOR
+            SetDlgItemInt(hDlg, IDC_GAP_Y_MAJOR, y, TRUE);
+
+            Displays->GetGapMinor(&x, &y);
+            // IDC_GAP_X_MINOR
+            SetDlgItemInt(hDlg, IDC_GAP_X_MINOR, x, TRUE);
+            // IDC_GAP_Y_MINOR
+            SetDlgItemInt(hDlg, IDC_GAP_Y_MINOR, y, TRUE);
+            ShowWindow(hDlg, SW_HIDE);
+            SetDlgItemText(hDlg, IDC_GAP_MINOR, L"");
+            SetDlgItemText(hDlg, IDC_GAP_MAJOR, L"");
+            SetDlgItemText(hDlg, IDC_BACKGROUND, L"");
+
             return (INT_PTR)TRUE;
         }
+
+        } // end of WM_COMMAND
+    }
+    return (INT_PTR)FALSE;
+}
+
+//*******************************************************************************
+//
+// Helper function for SettingsLayerDlg dialog box.
+// 
+//*******************************************************************************
+void ApplyDisplay(HWND hDlg) 
+{
+    BOOL bSuccess;
+    int x, y;
+
+    // IDC_GRID_X_MAJOR
+    x = GetDlgItemInt(hDlg, IDC_GRID_X_MAJOR, &bSuccess, TRUE);
+    // IDC_GRID_Y_MAJOR
+    y = GetDlgItemInt(hDlg, IDC_GRID_Y_MAJOR, &bSuccess, TRUE);
+    Displays->SetGridMajor(x, y);
+
+    // IDC_GRID_X_MINOR
+    x = GetDlgItemInt(hDlg, IDC_GRID_X_MINOR, &bSuccess, TRUE);
+    // IDC_GRID_Y_MINOR
+    y = GetDlgItemInt(hDlg, IDC_GRID_Y_MINOR, &bSuccess, TRUE);
+    Displays->SetGridMinor(x, y);
+
+    // IDC_GAP_X_MAJOR
+    x = GetDlgItemInt(hDlg, IDC_GAP_X_MAJOR, &bSuccess, TRUE);
+    // IDC_GAP_Y_MAJOR
+    y = GetDlgItemInt(hDlg, IDC_GAP_Y_MAJOR, &bSuccess, TRUE);
+    Displays->SetGapMajor(x, y);
+
+    // IDC_GAP_X_MINOR
+    x = GetDlgItemInt(hDlg, IDC_GAP_X_MINOR, &bSuccess, TRUE);
+    // IDC_GAP_Y_MINOR
+    y = GetDlgItemInt(hDlg, IDC_GAP_Y_MINOR, &bSuccess, TRUE);
+    Displays->SetGapMinor(x, y);
+
+    COLORREF* Overlay;
+    int xsize, ysize;
+    int iRes;
+    iRes = ImageLayers->GetOverlayImage(&Overlay, &xsize, &ysize);
+    if (iRes == APP_SUCCESS) {
+        int iRes;
+        Displays->CalculateDisplayExtent(xsize, ysize);
+        iRes = Displays->CreateDisplayImages();
+        if (iRes != APP_SUCCESS) {
+            MessageMySETIviewerError(hDlg, iRes, L"Display 0 gap parameter");
+            return;
+        }
+        iRes = Displays->UpdateDisplay(Overlay, xsize, ysize);
+        if (hwndImage != NULL) {
+            PostMessage(hwndImage, WM_COMMAND, IDC_GENERATE_BMP, 0l);
+            ShowWindow(hwndImage, SW_SHOW);
+        }
+    }
+    else {
+        MessageBox(hDlg, L"Nothing to display\nLoad and apply layers first", L"Display", MB_OK);
     }
 
-    return (INT_PTR)FALSE;
+    return;
 }
 
 //*******************************************************************************
@@ -428,7 +533,8 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
                 NumLayers = ImageLayers->GetNumLayers();
             }
             if (NumLayers == 0) {
-                // disable everything except default color selection
+                // disable everything except default color selection and 
+                // minimum overlay size
                 HWND hControl;
 
                 //IDC_COMBO_LAYER_LIST
@@ -441,10 +547,6 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
 
                 //IDC_Y_POS
                 hControl = GetDlgItem(hDlg, IDC_Y_POS);
-                EnableWindow(hControl, FALSE);
-
-                //IDC_SELECT_LAYER_COLOR
-                hControl = GetDlgItem(hDlg, IDC_SELECT_LAYER_COLOR);
                 EnableWindow(hControl, FALSE);
 
                 //IDC_X_MINUS
@@ -471,6 +573,20 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
                 hControl = GetDlgItem(hDlg, IDC_DELETE_LAYER);
                 EnableWindow(hControl, FALSE);
 
+                // set minimum size for overlay order image
+                {
+                    int x, y;
+                    ImageLayers->GetMinOverlaySize(&x, &y);
+                    SetDlgItemInt(hDlg, IDC_LAYERS_MIN_X, x, TRUE);
+                    SetDlgItemInt(hDlg, IDC_LAYERS_MIN_Y, y, TRUE);
+                }
+
+                {
+                    // save window position/size data
+                    CString csString = L"LayerWindow";
+                    RestoreWindowPlacement(hDlg, csString);
+                    //SaveWindowPlacement(hDlg, csString);
+                }
                 return(INT_PTR)TRUE;
             }
         }
@@ -507,6 +623,8 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             }
             // Set current selection to Current layer
             SendMessage(ListHwnd, LB_SETCURSEL, CurrentLayer, (LPARAM)0);
+            SendMessage(ListHwnd, LB_GETTEXT, CurrentLayer, (LPARAM)szString);
+            SetDlgItemText(hDlg, IDC_LAYER_TEXT, szString);
         }
         // IDC_X_POS, IDC_Y_POS
         // set x to current layer X location value
@@ -516,6 +634,16 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
 
         // set x to current layer X location value
         SetDlgItemInt(hDlg, IDC_Y_POS, y, TRUE);
+        
+        // set minimum size for overlay order image
+        {
+            int x, y;
+            ImageLayers->GetMinOverlaySize(&x, &y);
+            SetDlgItemInt(hDlg, IDC_LAYERS_MIN_X, x, TRUE);
+            SetDlgItemInt(hDlg, IDC_LAYERS_MIN_Y, y, TRUE);
+        }
+
+        // 
         // IDC_LAYER_COLOR
         // set current color in WM_CTLCOLORSTATIC
 
@@ -524,7 +652,13 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             CheckDlgButton(hDlg, IDC_ENABLE, BST_CHECKED);
         }
         hLayerEnable = GetDlgItem(hDlg, IDC_ENABLE);
-
+        
+        {
+            // save window position/size data
+            CString csString = L"LayerWindow";
+            RestoreWindowPlacement(hDlg, csString);
+            //SaveWindowPlacement(hwndImage, csString);
+        }
         Touched = FALSE;
         return (INT_PTR)TRUE;
     }
@@ -536,9 +670,9 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             DeleteObject(hbrSelectedLayer);
             hbrSelectedLayer = NULL;
         }
-        if (hbrDefaultLayer) {
-            DeleteObject(hbrDefaultLayer);
-            hbrDefaultLayer = NULL;
+        if (hbrBackgroundLayer) {
+            DeleteObject(hbrBackgroundLayer);
+            hbrBackgroundLayer = NULL;
         }
         hLayerEnable = NULL;
         return (INT_PTR)TRUE;
@@ -566,25 +700,36 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
                 return (INT_PTR)hbrSelectedLayer;
             }
         }
-
-        hThis = GetDlgItem(hDlg, IDC_DEFAULT_COLOR);
-        if (hThis == hControl) {
-            if (hbrDefaultLayer) {
-                DeleteObject(hbrDefaultLayer);
+        else {
+            hThis = GetDlgItem(hDlg, IDC_LAYER_COLOR);
+            if (hThis == hControl) {
+                if (hbrSelectedLayer) {
+                    DeleteObject(hbrSelectedLayer);
+                }
+                ThisColor = ImageLayers->GetDefaultLayerColor();
+                hbrSelectedLayer = CreateSolidBrush(ThisColor);
+                return (INT_PTR)hbrSelectedLayer;
             }
-            ThisColor = ImageLayers->GetDefaultColor();
-            hbrDefaultLayer = CreateSolidBrush(ThisColor);
-            return (INT_PTR)hbrDefaultLayer;
+        }
+
+        hThis = GetDlgItem(hDlg, IDC_BACKGROUND_COLOR);
+        if (hThis == hControl) {
+            if (hbrBackgroundLayer) {
+                DeleteObject(hbrBackgroundLayer);
+            }
+            ThisColor = ImageLayers->GetBackgroundColor();
+            hbrBackgroundLayer = CreateSolidBrush(ThisColor);
+            return (INT_PTR)hbrBackgroundLayer;
         }
 
         hThis = GetDlgItem(hDlg, IDC_OVERLAY_COLOR);
         if (hThis == hControl) {
-            if (hbrDefaultLayer) {
-                DeleteObject(hbrDefaultLayer);
+            if (hbrOverlayLayer) {
+                DeleteObject(hbrOverlayLayer);
             }
             ThisColor = ImageLayers->GetOverlayColor();
-            hbrDefaultLayer = CreateSolidBrush(ThisColor);
-            return (INT_PTR)hbrDefaultLayer;
+            hbrOverlayLayer = CreateSolidBrush(ThisColor);
+            return (INT_PTR)hbrOverlayLayer;
         }
 
         return FALSE;
@@ -601,7 +746,6 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             
             Selection = ImageLayers->GetCurrentLayer();
             ImageLayers->GetSize(Selection, &x, &y);
-            ImageLayers->EnableLayer(Selection);
 
             if (HIWORD(wParam) == BN_CLICKED || HIWORD(wParam) == BN_DOUBLECLICKED) {
                 if (IsDlgButtonChecked(hDlg, IDC_ENABLE) == BST_CHECKED) {
@@ -617,6 +761,15 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
                     ReplaceListBoxEntry(hDlg, IDC_LAYER_LIST, Selection, szString);
                 }
             }
+
+            // set text description for layer
+            HWND ListHwnd;
+            ListHwnd = GetDlgItem(hDlg, IDC_LAYER_LIST);
+            SendMessage(ListHwnd, LB_GETTEXT, Selection, (LPARAM)szString);
+            SetDlgItemText(hDlg, IDC_LAYER_TEXT, szString);
+
+            ApplyLayers(hDlg);
+                        
             return (INT_PTR)FALSE;
         }
 
@@ -634,6 +787,14 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             if (Layer < 0) {
                 return (INT_PTR)TRUE;
             }
+            // set text description for layer
+            HWND ListHwnd;
+            WCHAR szString[MAX_PATH];
+
+            ListHwnd = GetDlgItem(hDlg, IDC_LAYER_LIST);
+            SendMessage(ListHwnd, LB_GETTEXT, Layer, (LPARAM)szString);
+            SetDlgItemText(hDlg, IDC_LAYER_TEXT, szString);
+            
             // set x,y and color for this layer
             int x, y;
             ImageLayers->SetCurrentLayer(Layer);
@@ -651,6 +812,9 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             SetDlgItemText(hDlg, IDC_LAYER_COLOR, L"");
 
             Touched = TRUE;
+
+            ApplyLayers(hDlg);
+
             return (INT_PTR)TRUE;
         }
 
@@ -710,7 +874,15 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             }
             SetDlgItemText(hDlg, IDC_LAYER_COLOR, L"");
 
+            // set text description for layer
+            ListHwnd = GetDlgItem(hDlg, IDC_LAYER_LIST);
+            SendMessage(ListHwnd, LB_GETTEXT, Selection, (LPARAM)szString);
+            SetDlgItemText(hDlg, IDC_LAYER_TEXT, szString);
+
             Touched = TRUE;
+            
+            ApplyLayers(hDlg);
+            
             return (INT_PTR)TRUE;
         }
 
@@ -721,6 +893,7 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
 
             CHOOSECOLOR cc;                 // common dialog box structure 
             
+
             int CurrentLayer = ImageLayers->GetCurrentLayer();
 
             // Initialize CHOOSECOLOR 
@@ -728,21 +901,33 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             cc.lStructSize = sizeof(cc);
             cc.hwndOwner = hDlg;
             cc.lpCustColors = (LPDWORD)CustomColorTable;
-            cc.rgbResult = (DWORD)ImageLayers->GetLayerColor(CurrentLayer);
+            if (CurrentLayer >= 0) {
+                cc.rgbResult = (DWORD)ImageLayers->GetLayerColor(CurrentLayer);
+            }
+            else {
+                cc.rgbResult = (DWORD)ImageLayers->GetDefaultLayerColor();
+            }
             cc.Flags = CC_FULLOPEN | CC_RGBINIT;
 
-            if (ChooseColorW(&cc) == TRUE)
-            {
-                ImageLayers->SetLayerColor(CurrentLayer, (COLORREF)cc.rgbResult);
+            if (ChooseColorW(&cc) == TRUE) {
+                if (CurrentLayer >= 0) {
+                    ImageLayers->SetLayerColor(CurrentLayer, (COLORREF)cc.rgbResult);
+                }
+                else {
+                    ImageLayers->SetDefaultLayerColor((COLORREF)cc.rgbResult);
+                }
             }
             // force redraw static control
             SetDlgItemText(hDlg, IDC_LAYER_COLOR, L"");
 
             Touched = TRUE;
+
+            ApplyLayers(hDlg);
+            
             return (INT_PTR)TRUE;
         }
 
-        case IDC_SELECT_DEFAULT_COLOR:
+        case IDC_SELECT_BACKGROUND_COLOR:
         {
             // use common dialog color picker
             // this is old school method but doesn't require MFC or XAML
@@ -754,17 +939,20 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             cc.lStructSize = sizeof(cc);
             cc.hwndOwner = hDlg;
             cc.lpCustColors = (LPDWORD)CustomColorTable;
-            cc.rgbResult = (DWORD)ImageLayers->GetDefaultColor();
+            cc.rgbResult = (DWORD)ImageLayers->GetBackgroundColor();
             cc.Flags = CC_FULLOPEN | CC_RGBINIT;
 
             if (ChooseColorW(&cc) == TRUE)
             {
-                ImageLayers->SetDefaultColor((COLORREF)cc.rgbResult);
+                ImageLayers->SetBackgroundColor((COLORREF)cc.rgbResult);
             }
             // force redraw static control
-            SetDlgItemText(hDlg, IDC_DEFAULT_COLOR, L"");
+            SetDlgItemText(hDlg, IDC_BACKGROUND_COLOR, L"");
 
             Touched = TRUE;
+
+            ApplyLayers(hDlg);
+            
             return (INT_PTR)TRUE;
         }
 
@@ -791,60 +979,20 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             SetDlgItemText(hDlg, IDC_OVERLAY_COLOR, L"");
 
             Touched = TRUE;
+
+            ApplyLayers(hDlg);
+            
             return (INT_PTR)TRUE;
         }
 
         case IDC_APPLY:
         {
-            int xnewsize, ynewsize;
-            int iRes;
-            int x,y;
-            BOOL bSuccess;
-
-            x = GetDlgItemInt(hDlg, IDC_X_POS, &bSuccess, TRUE);
-            if (!bSuccess) {
-                MessageBox(hDlg, L"Invalid x position", L"Layers", MB_OK);
-                return (INT_PTR)TRUE;
+            if (ImageLayers->GetNumLayers() <= 0) {
+                MessageBox(hDlg, L"Nothing to display\nLoad layers first", L"Display", MB_OK);
+                return(INT_PTR)TRUE;
             }
-            y = GetDlgItemInt(hDlg, IDC_Y_POS, &bSuccess, TRUE);
-            if (!bSuccess) {
-                MessageBox(hDlg, L"Invalid y position", L"Layers", MB_OK);
-                return (INT_PTR)TRUE;
-            }
+            ApplyLayers(hDlg);
             
-            ImageLayers->SetLocation(ImageLayers->GetCurrentLayer(),x, y);
-
-            iRes = ImageLayers->GetNewOverlaySize(&xnewsize, &ynewsize);
-            if (iRes != APP_SUCCESS) {
-                MessageBox(hDlg, L"Creating Overlay image failed", L"Layers", MB_OK);
-                return (INT_PTR)TRUE;
-            }
-            iRes = ImageLayers->ReleaseOverlay();
-            iRes = ImageLayers->CreateOverlay(xnewsize, ynewsize);
-            if (iRes != APP_SUCCESS) {
-                return (INT_PTR)TRUE;
-            }
-
-            iRes = ImageLayers->UpdateOverlay();
-
-            COLORREF* Overlay;
-            int xsize, ysize;
-
-            iRes = ImageLayers->GetOverlayImage(&Overlay, &xsize, &ysize);
-            if (iRes == APP_SUCCESS) {
-                int iRes;
-                Displays->CalculateDisplayExtent(xsize, ysize);
-                iRes = Displays->CreateDisplayImages();
-                if (iRes != APP_SUCCESS) {
-                    MessageMySETIviewerError(hDlg, iRes, L"Display 0 gap parameter");
-                    return (INT_PTR)TRUE;
-                }
-                iRes = Displays->UpdateDisplay(Overlay, xsize, ysize);
-                if (hwndImage != NULL) {
-                    PostMessage(hwndImage, WM_COMMAND, IDC_GENERATE_BMP, 0l);
-                    ShowWindow(hwndImage, SW_SHOW);
-                }
-            }
             return (INT_PTR)TRUE;
         }
 
@@ -868,7 +1016,11 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             ImageLayers->GetLocation(Layer, &x, &y);
             x = Value;
             ImageLayers->SetLocation(Layer, x, y);
+
             Touched = TRUE;
+
+            ApplyLayers(hDlg);
+            
             return (INT_PTR)TRUE;
         }
 
@@ -892,7 +1044,11 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             ImageLayers->GetLocation(Layer, &x, &y);
             x = Value;
             ImageLayers->SetLocation(Layer, x, y);
+
             Touched = TRUE;
+
+            ApplyLayers(hDlg);
+            
             return (INT_PTR)TRUE;
         }
 
@@ -916,7 +1072,11 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             ImageLayers->GetLocation(Layer, &x, &y);
             y = Value;
             ImageLayers->SetLocation(Layer, x, y);
+
             Touched = TRUE;
+
+            ApplyLayers(hDlg);
+           
             return (INT_PTR)TRUE;
         }
 
@@ -940,7 +1100,11 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             ImageLayers->GetLocation(Layer, &x, &y);
             y = Value;
             ImageLayers->SetLocation(Layer, x, y);
+
             Touched = TRUE;
+
+            ApplyLayers(hDlg);
+            
             return (INT_PTR)TRUE;
         }
 
@@ -948,6 +1112,23 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
         {
             WCHAR CustomColor[20];
             WCHAR szString[20];
+            BOOL bSuccess;
+
+            {
+                int x, y;
+
+                x = GetDlgItemInt(hDlg, IDC_LAYERS_MIN_X, &bSuccess, TRUE);
+                if (!bSuccess) {
+                    MessageBox(hDlg, L"Invalid X min. overlay size", L"Layers", MB_OK);
+                    return (INT_PTR)TRUE;
+                }
+                y = GetDlgItemInt(hDlg, IDC_LAYERS_MIN_Y, &bSuccess, TRUE);
+                if (!bSuccess) {
+                    MessageBox(hDlg, L"Invalid Y min. overlay size", L"Layers", MB_OK);
+                    return (INT_PTR)TRUE;
+                }
+                ImageLayers->SetMinOverlaySize(x, y);
+            }
 
             for (int i = 0; i < 16; i++) {
                 swprintf_s(CustomColor, 20, L"CustomColorTable%d", i);
@@ -956,9 +1137,16 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             }
 
             COLORREF Color;
-            Color = ImageLayers->GetDefaultColor();
+
+            if (ImageLayers->GetNumLayers() == 0) {
+                Color = ImageLayers->GetDefaultLayerColor();
+                swprintf_s(szString, 20, L"%u", Color);
+                WritePrivateProfileString(L"SettingsDlg", L"DefaultLayerColor", szString, (LPCTSTR)strAppNameINI);
+            }
+
+            Color = ImageLayers->GetBackgroundColor();
             swprintf_s(szString, 20, L"%u", Color);
-            WritePrivateProfileString(L"SettingsDlg", L"DefaultColor", szString, (LPCTSTR)strAppNameINI);
+            WritePrivateProfileString(L"SettingsDlg", L"BackgroundColor", szString, (LPCTSTR)strAppNameINI);
             
             Color = ImageLayers->GetOverlayColor();
             swprintf_s(szString, 20, L"%u", Color);
@@ -973,6 +1161,13 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             ImageLayers->SetCurrentLayer(CurrentLayer);
             Touched = FALSE;
 
+            {
+                // save window position/size data
+                CString csString = L"LayerWindow";
+                //RestoreWindowPlacement(hDlg, csString);
+                SaveWindowPlacement(hDlg, csString);
+            }
+
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
         }
@@ -983,6 +1178,7 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
                 WCHAR TempConfig[MAX_PATH];
                 swprintf_s(TempConfig, MAX_PATH, L"%s\\MySETIviewerTmp.cfg", szTempDir);
                 ImageLayers->LoadConfiguration(TempConfig);
+                ApplyLayers(hDlg);
                 Touched = FALSE;
             }
             EndDialog(hDlg, LOWORD(wParam));
@@ -991,6 +1187,82 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
     }
 
     return (INT_PTR)FALSE;
+}
+//*******************************************************************************
+//
+// Helper function for SettingsLayerDlg dialog box.
+// 
+//*******************************************************************************
+void ApplyLayers(HWND hDlg)
+{
+    int xnewsize, ynewsize;
+    int iRes;
+    int x, y;
+    int Xsize, Ysize;
+    BOOL bSuccess;
+
+    if (ImageLayers->GetNumLayers() <= 0) {
+        return;
+    }
+
+    x = GetDlgItemInt(hDlg, IDC_X_POS, &bSuccess, TRUE);
+    if (!bSuccess) {
+        MessageBox(hDlg, L"Invalid x position", L"Layers", MB_OK);
+        return;
+    }
+    y = GetDlgItemInt(hDlg, IDC_Y_POS, &bSuccess, TRUE);
+    if (!bSuccess) {
+        MessageBox(hDlg, L"Invalid y position", L"Layers", MB_OK);
+        return;
+    }
+
+    Xsize = GetDlgItemInt(hDlg, IDC_LAYERS_MIN_X, &bSuccess, TRUE);
+    if (!bSuccess) {
+        MessageBox(hDlg, L"Invalid X Min Overlay size", L"Layers", MB_OK);
+        return;
+    }
+    Ysize = GetDlgItemInt(hDlg, IDC_LAYERS_MIN_Y, &bSuccess, TRUE);
+    if (!bSuccess) {
+        MessageBox(hDlg, L"Invalid Y Min Overlay size", L"Layers", MB_OK);
+        return;
+    }
+
+    ImageLayers->SetLocation(ImageLayers->GetCurrentLayer(), x, y);
+    ImageLayers->SetMinOverlaySize(Xsize, Ysize);
+
+    iRes = ImageLayers->GetNewOverlaySize(&xnewsize, &ynewsize);
+    if (iRes != APP_SUCCESS) {
+        MessageBox(hDlg, L"Creating Overlay image failed", L"Layers", MB_OK);
+        return;
+    }
+    iRes = ImageLayers->ReleaseOverlay();
+    iRes = ImageLayers->CreateOverlay(xnewsize, ynewsize);
+    if (iRes != APP_SUCCESS) {
+        return;
+    }
+
+    iRes = ImageLayers->UpdateOverlay();
+
+    COLORREF* Overlay;
+    int xsize, ysize;
+
+    iRes = ImageLayers->GetOverlayImage(&Overlay, &xsize, &ysize);
+    if (iRes == APP_SUCCESS) {
+        int iRes;
+        Displays->CalculateDisplayExtent(xsize, ysize);
+        iRes = Displays->CreateDisplayImages();
+        if (iRes != APP_SUCCESS) {
+            MessageMySETIviewerError(hDlg, iRes, L"Display 0 gap parameter");
+            return;
+        }
+        iRes = Displays->UpdateDisplay(Overlay, xsize, ysize);
+        if (hwndImage != NULL) {
+            PostMessage(hwndImage, WM_COMMAND, IDC_GENERATE_BMP, 0l);
+            ShowWindow(hwndImage, SW_SHOW);
+        }
+    }
+
+    return;
 }
 
 //*******************************************************************************
@@ -1008,9 +1280,6 @@ INT_PTR CALLBACK SettingsGlobalDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
     case WM_INITDIALOG:
     {
         int iRes;
-        GetPrivateProfileString(L"SettingsGlobalDlg", L"BMPresults", L"BMP files\\last.bmp", szString, MAX_PATH, (LPCTSTR)strAppNameINI);
-        SetDlgItemText(hDlg, IDC_BMP_RESULTS, szString);
-
         GetPrivateProfileString(L"SettingsGlobalDlg", L"TempDir", L"", szString, MAX_PATH, (LPCTSTR)strAppNameINI);
         SetDlgItemText(hDlg, IDC_IMG_TEMP, szString);
 
@@ -1024,33 +1293,17 @@ INT_PTR CALLBACK SettingsGlobalDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             CheckDlgButton(hDlg, IDC_SETTINGS_AUTO_PNG, BST_CHECKED);
         }
 
+        // IDC_SETTINGS_START_LAST
+        iRes = GetPrivateProfileInt(L"SettingsGlobalDlg", L"StartLast", 0, (LPCTSTR)strAppNameINI);
+        if (iRes != 0) {
+            CheckDlgButton(hDlg, IDC_SETTINGS_START_LAST, BST_CHECKED);
+        }
+
         return (INT_PTR)TRUE;
     }
 
     case WM_COMMAND:
         switch (LOWORD(wParam)) {
-        case IDC_BMP_RESULTS_BROWSE:
-        {
-            GetDlgItemText(hDlg, IDC_BMP_RESULTS, szString, MAX_PATH);
-
-            PWSTR pszFilename;
-            COMDLG_FILTERSPEC BMPType[] =
-            {
-                 { L"BMP files", L"*.bmp" },
-                 { L"All Files", L"*.*" },
-            };
-            if (!CCFileSave(hDlg, szString, &pszFilename, FALSE, 2, BMPType, L".bmp")) {
-                return (INT_PTR)TRUE;
-            }
-            {
-                wcscpy_s(szString, pszFilename);
-                CoTaskMemFree(pszFilename);
-            }
-            SetDlgItemText(hDlg, IDC_BMP_RESULTS, szString);
-
-            return (INT_PTR)TRUE;
-        }
-
         case IDC_IMG_TEMP_BROWSE:
         {
             PWSTR pszFilename;
@@ -1072,10 +1325,6 @@ INT_PTR CALLBACK SettingsGlobalDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
 
         case IDOK:
         {
-            GetDlgItemText(hDlg, IDC_BMP_RESULTS, szString, MAX_PATH);
-            wcscpy_s(szBMPFilename, szString);
-            WritePrivateProfileString(L"SettingsGlobalDlg", L"BMPresults", szString, (LPCTSTR)strAppNameINI);
-
             GetDlgItemText(hDlg, IDC_IMG_TEMP, szString, MAX_PATH);
             size_t Length = wcslen(szString);
 
@@ -1097,6 +1346,14 @@ INT_PTR CALLBACK SettingsGlobalDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
                 AutoPNG = 0;
             }
 
+            // IDC_SETTINGS_START_LAST
+            if (IsDlgButtonChecked(hDlg, IDC_SETTINGS_START_LAST) == BST_CHECKED) {
+                WritePrivateProfileString(L"SettingsGlobalDlg", L"StartLast", L"1", (LPCTSTR)strAppNameINI);
+            }
+            else {
+                WritePrivateProfileString(L"SettingsGlobalDlg", L"StartLast", L"0", (LPCTSTR)strAppNameINI);
+            }
+
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
         }
@@ -1109,3 +1366,4 @@ INT_PTR CALLBACK SettingsGlobalDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
 
     return (INT_PTR)FALSE;
 }
+

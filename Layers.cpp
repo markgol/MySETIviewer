@@ -22,6 +22,7 @@
 // 
 // V0.1.0.1 2023-12-04	Initial pre release
 // V0.3.0.1 2023-12-13	Changes to help integrate Image Dialog requirements
+// V0.4.1.1 2023-12-15	Added minimum Overlay Size
 //
 // Application standardized error numbers for functions:
 //		See AppErrors.h
@@ -97,9 +98,13 @@ int Layers::AddLayer(WCHAR* Filename) {
 		return APPERR_PARAMETER;
 	}
 
+	// try loading as .img file
 	iRes = LoadImageFile(&Image, Filename, &ImageHeader);
 	if (iRes != APP_SUCCESS) {
-		return iRes;
+		iRes = LoadBMPfile(&Image, Filename, &ImageHeader);
+		if (iRes != APP_SUCCESS) {
+			return iRes;
+		}
 	}
 
 	// save results in Layers class variables
@@ -112,7 +117,7 @@ int Layers::AddLayer(WCHAR* Filename) {
 	wcscpy_s(FileAdded, MAX_PATH,Filename);
 	LayerFilename[NumLayers] = FileAdded;
 
-	LayerColor[NumLayers] = rgbDefaultColor;
+	LayerColor[NumLayers] = 0xffffff;
 	LayerX[NumLayers] = 0;
 	LayerY[NumLayers] = 0;
 	Enabled[NumLayers] = TRUE;
@@ -259,15 +264,15 @@ int Layers::UpdateOverlay(void) {
 				OverlayPixel.Color = OverlayImage[oAddress+ oOffset];
 				if (Pixel == 0) {
 					// if pixel is already set ignore
-					if (OverlayPixel.Color != rgbDefaultColor &&
+					if (OverlayPixel.Color != rgbBackgroundColor &&
 						OverlayPixel.Color != rgbOverlayColor) {
 						continue;
 					}
-					OverlayImage[oAddress + oOffset] = rgbDefaultColor;
+					OverlayImage[oAddress + oOffset] = rgbBackgroundColor;
 				}
 				else {
 					// pixel is not zero
-					if (OverlayPixel.Color == rgbDefaultColor ||
+					if (OverlayPixel.Color == rgbBackgroundColor ||
 						OverlayPixel.Color == rgbOverlayColor) {
 						// pixel was not previously set high
 						// set pixel to layer color
@@ -318,8 +323,10 @@ int Layers::GetNewOverlaySize(int* x, int* y) {
 	// The image location in the of a given layers is based on it size and x,y pos
 	// The size of the overlay is the Delta X max and the Delta Y Max of all the
 	// layers.
-	int xmin = 0, xmax = 0;
-	int ymin = 0, ymax = 0;
+	// A minimum overlay size is also used
+	//
+	int xmin = -minOverlaySizeX / 2, xmax = minOverlaySizeX / 2;
+	int ymin = -minOverlaySizeY / 2, ymax = minOverlaySizeY / 2;
 	int xlow = 0, xhigh = 0;
 	int ylow = 0, yhigh = 0;
 	int xnew = 0, ynew = 0;
@@ -340,11 +347,12 @@ int Layers::GetNewOverlaySize(int* x, int* y) {
 	xnew = (xmax - xmin);
 	ynew = (ymax - ymin);
 
+
 	// Index where 0,0 is in the ImageExtent
 	// This is needed to porperly insert and image
 	// relative to the othe images
-	Xextent0 = -xmin;
-	Yextent0 = -ymin;
+	Xextent0 = (-xmin);
+	Yextent0 = (-ymin);
 
 	if (xnew <= 0 || ynew <= 0) {
 		*x = 0;
@@ -401,14 +409,23 @@ int Layers::SaveConfiguration(WCHAR* Filename) {
 		return APPERR_FILEOPEN;
 	}
 
-	swprintf_s(szString, MAX_PATH, L"%u", rgbDefaultColor);
-	iRes = WritePrivateProfileString(L"Layers", L"DefaultColor", szString, Filename);
+	swprintf_s(szString, MAX_PATH, L"%u", rgbBackgroundColor);
+	iRes = WritePrivateProfileString(L"Layers", L"BackgroundColor", szString, Filename);
+
+	swprintf_s(szString, MAX_PATH, L"%u", rgbDefaultLayerColor);
+	iRes = WritePrivateProfileString(L"Layers", L"DefaultLayerColor", szString, Filename);
 
 	swprintf_s(szString, MAX_PATH, L"%u", rgbOverlayColor);
 	iRes = WritePrivateProfileString(L"Layers", L"OverlayColor", szString, Filename);
 
 	swprintf_s(szString, MAX_PATH, L"%d", CurrentLayer);
 	iRes = WritePrivateProfileString(L"Layers", L"CurrentLayer", szString, Filename);
+
+	swprintf_s(szString, MAX_PATH, L"%d", minOverlaySizeX);
+	iRes = WritePrivateProfileString(L"Layers", L"minOverlaySizeX", szString, Filename);
+	
+	swprintf_s(szString, MAX_PATH, L"%d", minOverlaySizeY);
+	iRes = WritePrivateProfileString(L"Layers", L"minOverlaySizeY", szString, Filename);
 
 	for (int i = 0; i < NumLayers; i++) {
 		swprintf_s(AppName, MAX_PATH, L"Layers-%d", i);
@@ -482,11 +499,15 @@ int Layers::LoadConfiguration(WCHAR* Filename) {
 		return APPERR_FILEOPEN;
 	}
 
-	rgbDefaultColor = GetPrivateProfileInt(L"Layers", L"DefaultColor", 1, Filename);
+	rgbBackgroundColor = GetPrivateProfileInt(L"Layers", L"BackgroundColor", 1, Filename);
+	rgbDefaultLayerColor = GetPrivateProfileInt(L"Layers", L"DefautLayerColor", 1, Filename);
 	rgbOverlayColor = GetPrivateProfileInt(L"Layers", L"OverlayColor", 1, Filename);
 
 	CurrentLayer = GetPrivateProfileInt(L"Layers", L"CurrentLayer", 0, Filename);
 	
+	minOverlaySizeX = GetPrivateProfileInt(L"Layers", L"minOverlaySizeX", 512, Filename);
+	minOverlaySizeY = GetPrivateProfileInt(L"Layers", L"minOverlaySizeY", 512, Filename);
+
 	LayerCount = 0;
 	for (int i = 0; i < TotalLayers; i++) {
 		swprintf_s(AppName, MAX_PATH, L"Layers-%d", i);
@@ -615,24 +636,46 @@ int Layers::GetCurrentLayer(void) {
 
 //*******************************************************************************
 //
-//  int Layers::GetDefaultColor(void)
+//  int Layers::GetBackgroundColor(void)
 // 
 // This returns the current layer
 //
 //*******************************************************************************
-COLORREF Layers::GetDefaultColor(void) {
-	return rgbDefaultColor;
+COLORREF Layers::GetBackgroundColor(void) {
+	return rgbBackgroundColor;
 };
 
 //*******************************************************************************
 //
-//  int Layers::SetDefaultColor(void)
+//  int Layers::SetBackgroundColor(void)
 // 
 // This returns the current layer
 //
 //*******************************************************************************
-void Layers::SetDefaultColor(COLORREF Color) {
-	rgbDefaultColor = Color;
+void Layers::SetBackgroundColor(COLORREF Color) {
+	rgbBackgroundColor = Color;
+};
+
+//*******************************************************************************
+//
+//  int Layers::GetBackgroundColor(void)
+// 
+// This returns the current layer
+//
+//*******************************************************************************
+COLORREF Layers::GetDefaultLayerColor(void) {
+	return rgbDefaultLayerColor;
+};
+
+//*******************************************************************************
+//
+//  int Layers::SetBackgroundColor(void)
+// 
+// This returns the current layer
+//
+//*******************************************************************************
+void Layers::SetDefaultLayerColor(COLORREF Color) {
+	rgbDefaultLayerColor = Color;
 };
 
 //*******************************************************************************
@@ -749,6 +792,28 @@ int Layers::SaveBMP(WCHAR* Filename) {
 
 	return iRes;
 }
+
+//*******************************************************************************
+//
+//  GetMinOverlaySize()
+//	Class constructor
+// 
+//*******************************************************************************
+void Layers::GetMinOverlaySize(int*x, int* y) {
+	*x = minOverlaySizeX;
+	*y = minOverlaySizeY;
+};
+
+//*******************************************************************************
+//
+//  SetMinOverlaySize()
+//	Class constructor
+// 
+//*******************************************************************************
+void Layers::SetMinOverlaySize(int x, int y) {
+	minOverlaySizeX = x;
+	minOverlaySizeY = y;
+};
 
 //*******************************************************************************
 //

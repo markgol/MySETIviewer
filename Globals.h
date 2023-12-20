@@ -29,6 +29,7 @@ extern int AutoPNG;
 // Application handles and instances
 extern HWND hwndMain;
 extern HWND hwndImage;
+extern HWND hwndDisplay;
 extern HINSTANCE hInst;
 
 extern Layers* ImageLayers;

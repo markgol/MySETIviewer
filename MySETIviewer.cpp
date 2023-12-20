@@ -68,8 +68,11 @@
 // V0.3.0.1 2023-12-15  Changed the ImageDlg using Directed2D, added mouse zoom and pan to the
 //                      Displayed image..
 //                      Removed globals DisplayResults, AutoScaleResults, DefaultRBG, AutoSize
-// 
+// V0.4.0.1 2023-12-18  Added minimum overlay size to allow easier alignment against grid
+//                      Refactored DefaultColor -> BackgroundLayerColor, added DefaultLayerColor
 //
+// V1.0.0.1 2023-12-19  Initial public release
+// 
 //  This appliction stores user parameters in a Windows style .ini file
 //  The MySETIviewer.ini file must be in the same directory as the exectable
 //
@@ -152,6 +155,8 @@ INT_PTR CALLBACK    SettingsDisplayDlg(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    SettingsLayersDlg(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    SettingsGlobalDlg(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    ImageDlg(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK    Text2StreamDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+INT_PTR CALLBACK    BitImageDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 //*******************************************************************************
 //
@@ -316,8 +321,6 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    // strings
    WCHAR szString[MAX_PATH];
-   GetPrivateProfileString(L"SettingsGlobalDlg", L"BMPresults", L"", szString, MAX_PATH, (LPCTSTR)strAppNameINI);
-   wcscpy_s(szBMPFilename, szString);
 
    GetPrivateProfileString(L"SettingsGlobalDlg", L"TempDir", L"", szString, MAX_PATH, (LPCTSTR)strAppNameINI);
    wcscpy_s(szTempDir, szString);
@@ -334,35 +337,52 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        CustomColorTable[i] = (COLORREF) GetPrivateProfileInt(L"SettingsDlg", CustomColor, 0, (LPCTSTR)strAppNameINI);
    }
 
-   // These are class Display settings
-   COLORREF BackGroundColor = (COLORREF)GetPrivateProfileInt(L"SettingsDisplayDlg", L"rgbBackground", 0, (LPCTSTR)strAppNameINI);
-   COLORREF GapMajorColor = (COLORREF)GetPrivateProfileInt(L"SettingsDisplayDlg", L"rgbGapMajor", 0, (LPCTSTR)strAppNameINI);
-   COLORREF GapMinorColor = (COLORREF)GetPrivateProfileInt(L"SettingsDisplayDlg", L"rgbGapMinor", 0, (LPCTSTR)strAppNameINI);
+   // These are Display class settings
+   COLORREF BackGroundColor = (COLORREF)GetPrivateProfileInt(L"SettingsDisplayDlg", L"rgbBackground", 131586, (LPCTSTR)strAppNameINI);
+   COLORREF GapMajorColor = (COLORREF)GetPrivateProfileInt(L"SettingsDisplayDlg", L"rgbGapMajor", 2621521, (LPCTSTR)strAppNameINI);
+   COLORREF GapMinorColor = (COLORREF)GetPrivateProfileInt(L"SettingsDisplayDlg", L"rgbGapMinor", 986895, (LPCTSTR)strAppNameINI);
    Displays->SetColors(BackGroundColor, GapMajorColor, GapMinorColor);
 
    int ValueX, ValueY;
-   ValueX = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GridXmajor", 4, (LPCTSTR)strAppNameINI);
-   ValueY = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GridYmajor", 2, (LPCTSTR)strAppNameINI);
+   ValueX = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GridXmajor", 8, (LPCTSTR)strAppNameINI);
+   ValueY = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GridYmajor", 8, (LPCTSTR)strAppNameINI);
    Displays->SetGridMajor(ValueX, ValueY);
 
-   ValueX = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GridXminor", 2, (LPCTSTR)strAppNameINI);
-   ValueY = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GridYminor", 2, (LPCTSTR)strAppNameINI);
+   ValueX = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GridXminor", 4, (LPCTSTR)strAppNameINI);
+   ValueY = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GridYminor", 4, (LPCTSTR)strAppNameINI);
    Displays->SetGridMinor(ValueX, ValueY);
 
-   ValueX = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GapXmajor", 2, (LPCTSTR)strAppNameINI);
-   ValueY = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GapYmajor", 2, (LPCTSTR)strAppNameINI);
+   ValueX = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GapXmajor", 1, (LPCTSTR)strAppNameINI);
+   ValueY = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GapYmajor", 1, (LPCTSTR)strAppNameINI);
    Displays->SetGapMajor(ValueX, ValueY);
 
    ValueX = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GapXminor", 1, (LPCTSTR)strAppNameINI);
    ValueY = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GapYminor", 1, (LPCTSTR)strAppNameINI);
    Displays->SetGapMinor(ValueX, ValueY);
 
-   // These are class Layer settings
+   // These are Layer class settings
    COLORREF Color;
-   Color = (COLORREF) GetPrivateProfileInt(L"SettingsDlg", L"DefaultColor", 1, (LPCTSTR)strAppNameINI);
-   ImageLayers->SetDefaultColor(Color);
-   Color = (COLORREF)GetPrivateProfileInt(L"SettingsDlg", L"OverlayColor", 1, (LPCTSTR)strAppNameINI);
+   // This is the color of the overlay background anywhere it hasn't been replaced by image data
+   Color = (COLORREF) GetPrivateProfileInt(L"LayersDlg", L"BackGround", 2763306, (LPCTSTR)strAppNameINI);
+   ImageLayers->SetBackgroundColor(Color);
+   Color = (COLORREF)GetPrivateProfileInt(L"LayersDlg", L"OverlayColor", 34952, (LPCTSTR)strAppNameINI);
    ImageLayers->SetOverlayColor(Color);
+   Color = (COLORREF)GetPrivateProfileInt(L"LayersDlg", L"DefaultLayerColor", 16777215, (LPCTSTR)strAppNameINI);
+   ImageLayers->SetDefaultLayerColor(Color);
+
+   hwndDisplay = CreateDialog(hInst, MAKEINTRESOURCE(IDD_SETTINGS_DISPLAY), hWnd, SettingsDisplayDlg);
+
+   if (GetPrivateProfileInt(L"SettingsGlobalDlg", L"StartLast", 0, (LPCTSTR)strAppNameINI) != 0) {
+       // load the last layer cinfiguration
+       WCHAR szString[MAX_PATH];
+
+       GetPrivateProfileString(L"GlobalSettings", L"LastConfigFile", L"", szString, MAX_PATH, (LPCTSTR)strAppNameINI);
+       wcscpy_s(ImageLayers->ConfigurationFile, MAX_PATH, szString);
+       PostMessage(hwndMain, WM_COMMAND, IDM_RELOAD_LAYERS, 0);
+   }
+   else {
+       wcscpy_s(ImageLayers->ConfigurationFile, MAX_PATH, L"");
+   }
 
    return TRUE;
 }
@@ -425,7 +445,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
             iRes = ImageLayers->LoadConfiguration(szFilename);
             if (iRes != APP_SUCCESS) {
-                MessageMySETIviewerError(hWnd, iRes, L"Layers");
+                MessageBox(hWnd, L"Load configuration file failed\nCheck file for correct filenames in file", L"Layers", MB_OK);
+                break;
             }
             Displays->LoadConfiguration(szFilename);
             // todo: update the Layers overlay image
@@ -523,14 +544,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDM_RELOAD_LAYERS:
         {
             int iRes;
-            iRes = ImageLayers->GetNumLayers();
-            if (iRes == 0) {
-                MessageBox(hWnd, L"No layers to reload\nTry Load configuration", L"Layers", MB_OK);
-                break;
-            }
+            
             iRes = ImageLayers->LoadConfiguration(ImageLayers->ConfigurationFile);
             if (iRes != APP_SUCCESS) {
-                MessageMySETIviewerError(hWnd, iRes, L"Layers");
+                MessageBox(hWnd, L"Could not load Layer configuration file", L"Layers", MB_OK);
                 break;
             }
             break;
@@ -613,6 +630,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
         }
 
+        case IDM_BITTOOLS_TEXT2BITSTREAM:
+            DialogBox(hInst, MAKEINTRESOURCE(IDD_BITTOOLS_TEXT2STREAM), hWnd, Text2StreamDlg);
+            break;
+
+        case IDM_BITTOOLS_BINARYIMAGE:
+            DialogBox(hInst, MAKEINTRESOURCE(IDD_BITTOOLS_BINARYIMAGE), hWnd, BitImageDlg);
+            break;
+
         case IDM_EXIT:
         {
             if (hwndImage) {
@@ -636,7 +661,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 MessageBox(hWnd, L"Working file folder needs to be set\nin Settings->Global first", L"Layers", MB_OK);
                 break;
             }
-            DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTINGS_DISPLAY), hWnd, SettingsDisplayDlg);
+            if (hwndDisplay) {
+                ShowWindow(hwndDisplay, SW_SHOW);
+            }
+            
             break;
         }
 
@@ -671,6 +699,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // this must be done to ensure Direct2D factory is released
             DestroyWindow(hwndImage);
         }
+        if (hwndDisplay) {
+            // save window position/size data for the Image Dialog window
+            CString csString = L"ImageDisplay";
+            SaveWindowPlacement(hwndDisplay, csString);
+            DestroyWindow(hwndImage);
+        }
+
         DestroyWindow(hWnd);
         break;
     }
@@ -678,7 +713,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_DESTROY:
     {   
         WritePrivateProfileString(L"GlobalSettings", L"CurrentFilename", szCurrentFilename, (LPCTSTR)strAppNameINI);
-
+        WritePrivateProfileString(L"GlobalSettings", L"LastConfigFile", ImageLayers->ConfigurationFile, (LPCTSTR)strAppNameINI);
         // save window position/size data for the Main window
         CString csString = L"MainWindow";
         SaveWindowPlacement(hWnd, csString);
@@ -691,7 +726,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DestroyWindow(hwndImage);
         }
 
-        // todo: Release Display dialog
+        if (hwndDisplay) {
+            // save window position/size data for the Image Dialog window
+            CString csString = L"ImageDisplay";
+            SaveWindowPlacement(hwndDisplay, csString);
+            DestroyWindow(hwndImage);
+        }
 
         // delete the global classes;
         if (ImageLayers != NULL) delete ImageLayers;

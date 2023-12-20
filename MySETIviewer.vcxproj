@@ -157,6 +157,7 @@
   <ItemGroup>
     <ClCompile Include="AboutDlg.cpp" />
     <ClCompile Include="AppFunctions.cpp" />
+    <ClCompile Include="BinaryInput.cpp" />
     <ClCompile Include="Display.cpp" />
     <ClCompile Include="FileFunctions.cpp" />
     <ClCompile Include="ImageDialog.cpp" />

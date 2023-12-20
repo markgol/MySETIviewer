@@ -699,10 +699,10 @@ void Display::LoadConfiguration(WCHAR* szFilename)
     SetBackgroundColor(Color);
 
     Color = GetPrivateProfileInt(L"Display", L"rgbGapMajor", 30, (LPCTSTR)szFilename);
-    SetBackgroundColor(Color);
+    SetGapMajorColor(Color);
 
     Color = GetPrivateProfileInt(L"Display", L"rgbGapMinor", 20, (LPCTSTR)szFilename);
-    SetBackgroundColor(Color);
+    SetGapMinorColor(Color);
 
     return;
 }

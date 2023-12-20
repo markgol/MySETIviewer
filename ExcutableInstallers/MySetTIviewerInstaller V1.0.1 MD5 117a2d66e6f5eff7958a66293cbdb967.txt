@@ -1,2 +1,2 @@
 The MD5 has for the V1.0.1.1 MySETIviewer is:
-bf4281ec772eee141131d592876b5d96
+117a2d66e6f5eff7958a66293cbdb967

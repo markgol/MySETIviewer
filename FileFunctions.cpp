@@ -1544,6 +1544,11 @@ int SaveImageBMP(WCHAR* Filename,COLORREF* Image, int ImageXextent, int ImageYex
     free(BMPimage);
     fclose(Out);
 
+    if (AutoPNG) {
+        if (SaveBMP2PNG(Filename) != 1) {
+            return 0;
+        }
+    }
     return APP_SUCCESS;
 }
 

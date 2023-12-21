@@ -45,8 +45,7 @@
 //
 // Some function return TRUE/FALSE results
 // 
-// V0.1.0.1 2023-11-26, Initial pre-release
-// V0.3.0.1 2023-12-14  Added Listbox replace string function
+// V1.0.1.0	2023-12-20	Initial release
 //
 #include "framework.h"
 #include "resource.h"

@@ -88,7 +88,10 @@
 #define IDC_ENABLE                      1225
 #define IDC_LAYERS_MIN_X                1226
 #define IDC_LAYER_TEXT                  1227
+#define IDC_GLOBAL_YPOS_UP              1227
 #define IDC_LAYERS_MIN_Y                1228
+#define IDC_RADIO2                      1228
+#define IDC_GLOBAL_YPOS_DOWN            1228
 #define IDM_PROPERTIES_SETTINGS         32601
 #define IDM_SETTINGS                    32602
 #define IDC_FILE_OPEN                   32604
@@ -129,7 +132,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        201
 #define _APS_NEXT_COMMAND_VALUE         32638
-#define _APS_NEXT_CONTROL_VALUE         1227
+#define _APS_NEXT_CONTROL_VALUE         1228
 #define _APS_NEXT_SYMED_VALUE           300
 #endif
 #endif

@@ -18,11 +18,8 @@
 // 
 // This file contains the dialog callback procedures for settings dialogs; Display and Layers
 // 
-// V0.1.0.1 2023-12-08  Initial Pre Release
-// V0.3.0.1 2023-12-15  Removed globals DisplayResults, AutoScaleResults, DefaultRBG, AutoSize
-// V.04.0.1 2023-12-15  Changed Display dialog to modeless
-//                      Changed +/- and change color buttons to also Apply results
-// V.04.1.1 2023-12-15  Added builtin blank layer that can be used as largest image size
+// V1.0.1.0	2023-12-20	Initial release
+// V1.0.2.0 2023-12-20  Added Y direction flag for which direction to move image
 //
 // Global Settings dialog box handler
 // 
@@ -488,6 +485,17 @@ void ApplyDisplay(HWND hDlg)
 //*******************************************************************************
 //
 // Message handler for SettingsLayersDlg dialog box.
+// 
+// Things needed to do to be able to make modeless
+//      Changing yposDir requires updating the currently selected parameters field for y position
+//      Move Add layer to Layers dialog, delete from menus
+//      Load configuration must reload the the layer list in the Layer dialog and the
+//        position parameters and color parmaters
+//      Move New to Layers dialog, delete from menus
+//      Delete Remove Layer from menu
+//      Reload configuration must reload the layer list in the layer dialog and the 
+//        position parameters and color parameters
+//      Remove disabling controls in Layers dialog, change to reject changes if # Layers is 0
 // 
 //*******************************************************************************
 INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -1299,6 +1307,15 @@ INT_PTR CALLBACK SettingsGlobalDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             CheckDlgButton(hDlg, IDC_SETTINGS_START_LAST, BST_CHECKED);
         }
 
+        // Radio buttons
+        int ydir = ImageLayers->GetYdir();
+        if (ydir) {
+            CheckRadioButton(hDlg, IDC_GLOBAL_YPOS_UP, IDC_GLOBAL_YPOS_DOWN, IDC_GLOBAL_YPOS_UP);
+        }
+        else {
+            CheckRadioButton(hDlg, IDC_GLOBAL_YPOS_UP, IDC_GLOBAL_YPOS_DOWN, IDC_GLOBAL_YPOS_DOWN);
+        }
+
         return (INT_PTR)TRUE;
     }
 
@@ -1310,7 +1327,7 @@ INT_PTR CALLBACK SettingsGlobalDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
             GetDlgItemText(hDlg, IDC_IMG_TEMP, szString, MAX_PATH);
             COMDLG_FILTERSPEC imgType[] =
             {
-                 { L"All Files", L"*.*" }            };
+                 { L"All Files", L"*.*" } };
             if (!CCFileOpen(hDlg, szString, &pszFilename, TRUE, 1, imgType, L"")) {
                 return (INT_PTR)TRUE;
             }
@@ -1354,13 +1371,26 @@ INT_PTR CALLBACK SettingsGlobalDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
                 WritePrivateProfileString(L"SettingsGlobalDlg", L"StartLast", L"0", (LPCTSTR)strAppNameINI);
             }
 
+            // radio buttons
+            if (IsDlgButtonChecked(hDlg, IDC_GLOBAL_YPOS_UP)) {
+                ImageLayers->SetYdir(1);
+                WritePrivateProfileString(L"SettingsGlobalDlg", L"yposDir", L"1", (LPCTSTR)strAppNameINI);
+            }
+            else {
+                ImageLayers->SetYdir(0);
+                WritePrivateProfileString(L"SettingsGlobalDlg", L"yposDir", L"0", (LPCTSTR)strAppNameINI);
+            }
+
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
         }
 
         case IDCANCEL:
+        {
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
+        }
+
         }
     }
 

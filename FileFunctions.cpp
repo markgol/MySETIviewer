@@ -42,9 +42,7 @@
 //
 // Some function return TRUE/FALSE results
 // 
-// V0.1.0.1 2023-11-28  pre release based on MySETIapp FileFunctions.cpp V1.2.10.1 2023-11-05
-// V0.3.0.1 2023-12-15  Removed ImportBMP() function.  Add layer already perofrms this function.
-//                      Removed DisplayImage() function.  Replaced by other methods.
+// V1.0.1.0	2023-12-20	Initial release
 //
 #include "framework.h"
 #include "resource.h"

@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License along with MySETIapp.
 // If not, see < https://www.gnu.org/licenses/>. 
 // 
-// V1.0.0.1 2023-08-20 Initial Release
+// V1.0.1.0	2023-12-20	Initial release
 //
 // About box handler
 //

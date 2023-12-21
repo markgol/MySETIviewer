@@ -60,18 +60,9 @@
 // The MySETIviewer covers many of the problems people have had in the Discord group visualizing
 // the image data being generated in the decoding process.
 //
-// V0.1.0.1  2023-12-08 Initial development version of application
-//                      This implements the skeleton which include menus, Display, Layers dialog,
-//                      the Layers class, and a simple convert result to .bmp file menu selection.  
-//                      This was to help verify proper layer and overlay operations.
-// V0.2.0.1 2023-12-08  Added the Display class to provide the Displayed image
-// V0.3.0.1 2023-12-15  Changed the ImageDlg using Directed2D, added mouse zoom and pan to the
-//                      Displayed image..
-//                      Removed globals DisplayResults, AutoScaleResults, DefaultRBG, AutoSize
-// V0.4.0.1 2023-12-18  Added minimum overlay size to allow easier alignment against grid
-//                      Refactored DefaultColor -> BackgroundLayerColor, added DefaultLayerColor
-//
-// V1.0.0.1 2023-12-19  Initial public release
+// V1.0.1.0	2023-12-20	Initial release
+// V1.0.2.0 2023-12-20  Added Y direction flag for which direction to move image
+//						Changed color mixing formula when pixels are overlapped.
 // 
 //  This appliction stores user parameters in a Windows style .ini file
 //  The MySETIviewer.ini file must be in the same directory as the exectable
@@ -330,6 +321,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    // variables
    AutoPNG = GetPrivateProfileInt(L"SettingsGlobalDlg", L"AutoPNG", 1, (LPCTSTR)strAppNameINI);
+
+   int ydir = GetPrivateProfileInt(L"SettingsGlobalDlg", L"yposDir", 0, (LPCTSTR)strAppNameINI);
+   ImageLayers->SetYdir(ydir);
 
    for (int i = 0; i < 16; i++) {
        WCHAR CustomColor[20];

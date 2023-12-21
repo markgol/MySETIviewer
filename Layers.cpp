@@ -20,9 +20,9 @@
 // This class handles the conifguration data and image memory
 // used in creating multiple image overlays for display
 // 
-// V0.1.0.1 2023-12-04	Initial pre release
-// V0.3.0.1 2023-12-13	Changes to help integrate Image Dialog requirements
-// V0.4.1.1 2023-12-15	Added minimum Overlay Size
+// V1.0.1.0	2023-12-20	Initial release
+// V1.0.2.0 2023-12-20  Added Y direction flag for which direction to move image
+//						Changed color mixing formula when pixels are overlapped.
 //
 // Application standardized error numbers for functions:
 //		See AppErrors.h
@@ -250,8 +250,14 @@ int Layers::UpdateOverlay(void) {
 		}
 		iColor.Color = LayerColor[Layer];
 
-		oAddress = ((Yextent0+ LayerY[Layer])- (LayerYsize[Layer]/2)) * ImageXextent;
-		
+		// todo: add yposDir here
+		if (yposDir == 0) {
+			oAddress = ((Yextent0 + LayerY[Layer]) - (LayerYsize[Layer] / 2)) * ImageXextent;
+		}
+		else {
+			oAddress = ((Yextent0 - LayerY[Layer]) - (LayerYsize[Layer] / 2)) * ImageXextent;
+		}
+
 		iAddress = 0;
 
 		for (int y = 0; y < ImageYsize;
@@ -280,15 +286,15 @@ int Layers::UpdateOverlay(void) {
 					}
 					else {
 						// pixel already set, add the 2 COLORREF values
-						Colorsum = (int)OverlayPixel.rgb.rgbRed + (int)iColor.rgb.rgbRed;
+						Colorsum = (int)OverlayPixel.rgb.rgbRed*2/3 + (int)iColor.rgb.rgbRed*2/3;
 						if (Colorsum > 255) Colorsum = 255;
 						NewColor.rgb.rgbRed = Colorsum;
 
-						Colorsum = (int)OverlayPixel.rgb.rgbGreen + (int)iColor.rgb.rgbGreen;
+						Colorsum = (int)OverlayPixel.rgb.rgbGreen*2/3 + (int)iColor.rgb.rgbGreen*2/3;
 						if (Colorsum > 255) Colorsum = 255;
 						NewColor.rgb.rgbGreen = Colorsum;
 
-						Colorsum = (int)OverlayPixel.rgb.rgbBlue + (int)iColor.rgb.rgbBlue;
+						Colorsum = (int)OverlayPixel.rgb.rgbBlue*2/3 + (int)iColor.rgb.rgbBlue*2/3;
 						if (Colorsum > 255) Colorsum = 255;
 						NewColor.rgb.rgbBlue = Colorsum;
 
@@ -427,6 +433,9 @@ int Layers::SaveConfiguration(WCHAR* Filename) {
 	swprintf_s(szString, MAX_PATH, L"%d", minOverlaySizeY);
 	iRes = WritePrivateProfileString(L"Layers", L"minOverlaySizeY", szString, Filename);
 
+	swprintf_s(szString, MAX_PATH, L"%d", yposDir);
+	iRes = WritePrivateProfileString(L"Layers", L"yposDir", szString, Filename);
+
 	for (int i = 0; i < NumLayers; i++) {
 		swprintf_s(AppName, MAX_PATH, L"Layers-%d", i);
 
@@ -502,6 +511,7 @@ int Layers::LoadConfiguration(WCHAR* Filename) {
 	rgbBackgroundColor = GetPrivateProfileInt(L"Layers", L"BackgroundColor", 1, Filename);
 	rgbDefaultLayerColor = GetPrivateProfileInt(L"Layers", L"DefautLayerColor", 1, Filename);
 	rgbOverlayColor = GetPrivateProfileInt(L"Layers", L"OverlayColor", 1, Filename);
+	yposDir = GetPrivateProfileInt(L"Layers", L"yposDir", 0, Filename);
 
 	CurrentLayer = GetPrivateProfileInt(L"Layers", L"CurrentLayer", 0, Filename);
 	
@@ -849,4 +859,29 @@ int Layers::GetOverlayImage(COLORREF** Image, int* xsize, int* ysize)
 	return APP_SUCCESS;
 }
 
+//*******************************************************************************
+//
+//  int GetYdir()
+// 
+//*******************************************************************************
+int Layers::GetYdir()
+{
+	return yposDir;
+}
+
+//*******************************************************************************
+//
+//  int GetYdir()
+// 
+//*******************************************************************************
+void Layers::SetYdir(int ydir)
+{
+	if (yposDir != ydir) {
+		// change polarity of the LayerY values
+		for (int Layer = 0; Layer < NumLayers; Layer++) {
+			LayerY[Layer] = -LayerY[Layer];
+		}
+	}
+	yposDir = ydir;
+}
 

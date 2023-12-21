@@ -20,9 +20,7 @@
 // This class handles the conifguration data and image memory
 // used in creating multiple image overlays for display
 // 
-// V0.1.0.1 2023-12-04	Initial pre release 
-// V0.2.0.1 2023-12-08  Added the Display class to provide the on screen display without the use of
-//                      a BMP file viewer.
+// V1.0.1.0	2023-12-20	Initial release
 //
 // Application standardized error numbers for functions:
 //		See AppErrors.h

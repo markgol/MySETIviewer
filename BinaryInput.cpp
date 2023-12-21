@@ -18,8 +18,7 @@
 // 
 // This file contains the dialog callback procedures for settings dialogs; Display and Layers
 // 
-// V.04.1.1 2023-12-15  Added binary/raw bit file input, This is based on the MySETIapp dialogs and functions
-//                        removed the batch file processing that was inthe MySETIapp processing.
+// V1.0.1.0	2023-12-20	Initial release
 //
 // Global Settings dialog box handler
 // 

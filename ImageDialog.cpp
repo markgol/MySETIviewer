@@ -18,10 +18,7 @@
 // 
 // This file contains the dialog callback procedures for the image dialog
 // 
-// V0.1.0.1 2023-11-27  Initial Pre Release
-// V0.3.0.1 2023-12-15  Correcting behaviour of repaint, window position saving/restoring
-//						Moved ImageDialog class definitions to ImageDialog.h, ImageDialog.cpp
-// V0.4.0.1 2023-12-18  Corrected WM_MOUSEMOVE, get x,y mouse position
+// V1.0.1.0	2023-12-20	Initial release
 //
 // This handles all the actual display of the bitmap generated
 //

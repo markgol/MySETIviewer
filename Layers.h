@@ -21,8 +21,8 @@
 // This class handles the conifguration data and image memory
 // used in creating multiple image overlays for display
 // 
-// V0.1.0.1 2023-12-04	Initial pre release 
-// V0.3.0.1 2023-12-13	Changes to help integrate Image Dialog requirements
+// V1.0.1.0	2023-12-20	Initial release
+// V1.0.2.0 2023-12-20  Added Y direction flag for which direction to move image
 //
 #include "framework.h"
 
@@ -52,6 +52,7 @@ private:
 	int Yextent0 = 0;
 	int minOverlaySizeX = 512;
 	int minOverlaySizeY = 512;
+	int yposDir = 0;
 
 public:
 	// variables
@@ -106,6 +107,10 @@ public:
 
 	void GetMinOverlaySize(int* x,int* y);
 	void SetMinOverlaySize(int x, int y);
+
+	int GetYdir();
+	void SetYdir(int ydir);
+
 
 	int GetOverlayImage(COLORREF** OverlayImage, int* xsize, int* ysize);
 

@@ -18,7 +18,7 @@
 // 
 // This file contains the dialog callback procedures for settings dialogs; Display and Layers
 // 
-// V1.0.1.0	2023-12-20	Initial release
+// V1.0.1	2023-12-20	Initial release
 //
 // Global Settings dialog box handler
 // 

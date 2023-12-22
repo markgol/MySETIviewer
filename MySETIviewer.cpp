@@ -60,9 +60,13 @@
 // The MySETIviewer covers many of the problems people have had in the Discord group visualizing
 // the image data being generated in the decoding process.
 //
-// V1.0.1.0	2023-12-20	Initial release
-// V1.0.2.0 2023-12-20  Added Y direction flag for which direction to move image
+// V1.0.1	2023-12-20	Initial release
+// V1.0.2   2023-12-20  Added Y direction flag for which direction to move image
 //						Changed color mixing formula when pixels are overlapped.
+// V1.1.0   2023-12-20  Changed the Layer dialog to be modeless
+//                      Moved Add layer to Layers dialog
+//                      Deleted Remove Layer from menu 
+//                      Correction, do not save anything when there are no layers
 // 
 //  This appliction stores user parameters in a Windows style .ini file
 //  The MySETIviewer.ini file must be in the same directory as the exectable
@@ -110,7 +114,8 @@ ImageDialog* ImgDlg = NULL;     // This class is used to support displaying the 
                                 // on the desktop.  This also includes scaling and panning of the displayed image
 
 // global flags
-int AutoPNG = 0;                // generate a PNG file when a BMP file is saved
+BOOL AutoPNG = FALSE;                // generate a PNG file when a BMP file is saved
+BOOL KeepOpen = TRUE;           // keep Display and Layers dialog open when clicking OK or Cancel
 
 // handles for modeless dialogs and windows
 HWND hwndImage = NULL;   // Handle for modeless Image Dialog window (this displays the image in a window)
@@ -321,8 +326,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    // variables
    AutoPNG = GetPrivateProfileInt(L"SettingsGlobalDlg", L"AutoPNG", 1, (LPCTSTR)strAppNameINI);
-
-   int ydir = GetPrivateProfileInt(L"SettingsGlobalDlg", L"yposDir", 0, (LPCTSTR)strAppNameINI);
+   KeepOpen = GetPrivateProfileInt(L"SettingsGlobalDlg", L"KeepOpen", 1, (LPCTSTR)strAppNameINI);
+  
+   int ydir = GetPrivateProfileInt(L"SettingsGlobalDlg", L"yposDir", 1, (LPCTSTR)strAppNameINI);
    ImageLayers->SetYdir(ydir);
 
    for (int i = 0; i < 16; i++) {
@@ -371,12 +377,17 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        WCHAR szString[MAX_PATH];
 
        GetPrivateProfileString(L"GlobalSettings", L"LastConfigFile", L"", szString, MAX_PATH, (LPCTSTR)strAppNameINI);
-       wcscpy_s(ImageLayers->ConfigurationFile, MAX_PATH, szString);
-       PostMessage(hwndMain, WM_COMMAND, IDM_RELOAD_LAYERS, 0);
+       //wcscpy_s(ImageLayers->ConfigurationFile, MAX_PATH, szString);
+       int iRes = ImageLayers->LoadConfiguration(szString);
+       if (iRes != APP_SUCCESS) {
+           wcscpy_s(ImageLayers->ConfigurationFile, MAX_PATH, L"");
+       }
    }
    else {
        wcscpy_s(ImageLayers->ConfigurationFile, MAX_PATH, L"");
    }
+
+   hwndLayers = CreateDialog(hInst, MAKEINTRESOURCE(IDD_SETTINGS_LAYERS), hWnd, SettingsLayersDlg);
 
    return TRUE;
 }
@@ -404,20 +415,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (wmId)
         {
 
-        case IDM_LAYER_NEW:
-        {
-            int NumLayers = ImageLayers->GetNumLayers();
-            if (NumLayers == 0) {
-                break;
-            }
-
-            ImageLayers->ReleaseOverlay();
-            for (int i = NumLayers - 1; i >= 0; i--) {
-                ImageLayers->ReleaseLayer(i);
-            }
-            break;
-        }
-
         case IDM_LOAD_CONFIGURATION:
         {
             int iRes;
@@ -443,8 +440,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
             }
             Displays->LoadConfiguration(szFilename);
-            // todo: update the Layers overlay image
-            // todo: update the display image for the eoverlay image
+            SendMessage(hwndDisplay, WM_COMMAND, ID_UPDATE,0); // do not apply
+            SendMessage(hwndLayers, WM_COMMAND, ID_UPDATE, 1); // apply 
+            
             break;
         }
 
@@ -499,58 +497,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
         }
 
-        case IDM_ADD_LAYER:
-        {
-            if (ImageLayers->GetNumLayers() >= MAX_LAYERS) {
-                MessageBox(hWnd, L"Max layers reached", L"Layers", MB_OK);
-                break;
-            }
-
-            PWSTR pszFilename;
-            COMDLG_FILTERSPEC AllType[] =
-            {
-                 { L"Image files", L"*.raw" },
-                 { L"BMP files", L"*.bmp" },
-                 { L"All Files", L"*.*" },
-            };
-
-            if (!CCFileOpen(hWnd, szCurrentFilename, &pszFilename, FALSE, 3, AllType, L".raw")) {
-                break;
-            }
-
-            wcscpy_s(szCurrentFilename, pszFilename);
-            CoTaskMemFree(pszFilename);
-
-            int iRes = ImageLayers->AddLayer(szCurrentFilename);
-            if (iRes != APP_SUCCESS) {
-                MessageMySETIviewerError(hWnd, iRes, L"Add layer failure");
-                break;
-            }
-            break;
-        }
-
-        case IDM_REMOVE_LAYER:
-        {
-            DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTINGS_LAYERS), hWnd, SettingsLayersDlg);
-            break;
-        }
-
-        case IDM_RELOAD_LAYERS:
-        {
-            int iRes;
-            
-            iRes = ImageLayers->LoadConfiguration(ImageLayers->ConfigurationFile);
-            if (iRes != APP_SUCCESS) {
-                MessageBox(hWnd, L"Could not load Layer configuration file", L"Layers", MB_OK);
-                break;
-            }
-            break;
-        }
-
         case IDM_LAYER_SAVEBMP:
         {
+            if (ImageLayers->GetNumLayers() == 0) {
+                MessageBox(hWnd, L"No layers, nothing to save", L"Layers", MB_OK); 
+                break;
+            }
+
             if (!ImageLayers->OverlayValid) {
-                MessageBox(hWnd, L"Overlay is not valid to save\nmake sure current configuration is applied", L"Layers", MB_OK);
+                MessageBox(hWnd, L"Overlay is not valid to save\nmake sure to 'Apply' current layers configuration", L"Layers", MB_OK);
                 break;
             }
 
@@ -578,6 +533,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         case IDM_DISPLAY_SAVEBMP:
         {
+            if (ImageLayers->GetNumLayers() == 0) {
+                MessageBox(hWnd, L"No layers, nothing to save", L"Display", MB_OK);
+                break;
+            }
+
             PWSTR pszFilename;
             COMDLG_FILTERSPEC AllType[] =
             {
@@ -668,7 +628,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 MessageBox(hWnd, L"Working file folder needs to be set\nin Settings->Global first", L"Layers", MB_OK);
                 break;
             }
-            DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTINGS_LAYERS), hWnd, SettingsLayersDlg);
+            if (hwndLayers) {
+                ShowWindow(hwndLayers, SW_SHOW);
+            }
+
+            //DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTINGS_LAYERS), hWnd, SettingsLayersDlg);
             break;
         }
 
@@ -697,7 +661,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // save window position/size data for the Image Dialog window
             CString csString = L"ImageDisplay";
             SaveWindowPlacement(hwndDisplay, csString);
-            DestroyWindow(hwndImage);
+            DestroyWindow(hwndDisplay);
+        }
+        if (hwndLayers) {
+            // save window position/size data for the Image Dialog window
+            CString csString = L"LayerWindow";
+            SaveWindowPlacement(hwndLayers, csString);
+            DestroyWindow(hwndLayers);
         }
 
         DestroyWindow(hWnd);
@@ -724,7 +694,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // save window position/size data for the Image Dialog window
             CString csString = L"ImageDisplay";
             SaveWindowPlacement(hwndDisplay, csString);
-            DestroyWindow(hwndImage);
+            DestroyWindow(hwndDisplay);
+        }
+
+        if (hwndLayers) {
+            // save window position/size data for the Image Dialog window
+            CString csString = L"LayerWindow";
+            SaveWindowPlacement(hwndDisplay, csString);
+            DestroyWindow(hwndLayers);
         }
 
         // delete the global classes;

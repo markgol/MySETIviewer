@@ -24,12 +24,14 @@ extern WCHAR szBMPFilename[MAX_PATH];
 extern WCHAR szTempDir[MAX_PATH];
 
 // globals flags
-extern int AutoPNG;
+extern BOOL AutoPNG;
+extern BOOL KeepOpen;
 
 // Application handles and instances
 extern HWND hwndMain;
 extern HWND hwndImage;
 extern HWND hwndDisplay;
+extern HWND hwndLayers;
 extern HINSTANCE hInst;
 
 extern Layers* ImageLayers;

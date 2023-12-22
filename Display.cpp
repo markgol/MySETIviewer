@@ -20,7 +20,7 @@
 // This class handles the conifguration data and image memory
 // used in creating multiple image overlays for display
 // 
-// V1.0.1.0	2023-12-20	Initial release
+// V1.0.1	2023-12-20	Initial release
 //
 // Application standardized error numbers for functions:
 //		See AppErrors.h

@@ -45,7 +45,7 @@
 //
 // Some function return TRUE/FALSE results
 // 
-// V1.0.1.0	2023-12-20	Initial release
+// V1.0.1	2023-12-20	Initial release
 //
 #include "framework.h"
 #include "resource.h"

@@ -20,8 +20,8 @@
 // This class handles the conifguration data and image memory
 // used in creating multiple image overlays for display
 // 
-// V1.0.1.0	2023-12-20	Initial release
-// V1.0.2.0 2023-12-20  Added Y direction flag for which direction to move image
+// V1.0.1	2023-12-20	Initial release
+// V1.0.2	2023-12-20  Added Y direction flag for which direction to move image
 //						Changed color mixing formula when pixels are overlapped.
 //
 // Application standardized error numbers for functions:
@@ -117,7 +117,7 @@ int Layers::AddLayer(WCHAR* Filename) {
 	wcscpy_s(FileAdded, MAX_PATH,Filename);
 	LayerFilename[NumLayers] = FileAdded;
 
-	LayerColor[NumLayers] = 0xffffff;
+	LayerColor[NumLayers] = rgbDefaultLayerColor;
 	LayerX[NumLayers] = 0;
 	LayerY[NumLayers] = 0;
 	Enabled[NumLayers] = TRUE;
@@ -341,7 +341,13 @@ int Layers::GetNewOverlaySize(int* x, int* y) {
 		// half the size plus the position offset from center
 		xlow = (-LayerXsize[Layer] / 2) + LayerX[Layer];
 		xhigh = LayerXsize[Layer] + xlow;
-		ylow = (-LayerYsize[Layer] / 2) + LayerY[Layer];
+		if (!yposDir) {
+			ylow = (-LayerYsize[Layer] / 2) + LayerY[Layer];
+		}
+		else {
+			ylow = (-LayerYsize[Layer] / 2) - LayerY[Layer];
+		}
+
 		yhigh = LayerYsize[Layer] + ylow;
 	
 		if (xlow < xmin) xmin = xlow;
@@ -509,7 +515,7 @@ int Layers::LoadConfiguration(WCHAR* Filename) {
 	}
 
 	rgbBackgroundColor = GetPrivateProfileInt(L"Layers", L"BackgroundColor", 1, Filename);
-	rgbDefaultLayerColor = GetPrivateProfileInt(L"Layers", L"DefautLayerColor", 1, Filename);
+	rgbDefaultLayerColor = GetPrivateProfileInt(L"Layers", L"DefautLayerColor", 0xffffff, Filename);
 	rgbOverlayColor = GetPrivateProfileInt(L"Layers", L"OverlayColor", 1, Filename);
 	yposDir = GetPrivateProfileInt(L"Layers", L"yposDir", 0, Filename);
 

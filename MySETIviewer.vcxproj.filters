@@ -83,6 +83,12 @@
     <ClCompile Include="BinaryInput.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="LayersDlg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DisplayDlg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="MySETIviewer.rc">

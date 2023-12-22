@@ -159,10 +159,12 @@
     <ClCompile Include="AppFunctions.cpp" />
     <ClCompile Include="BinaryInput.cpp" />
     <ClCompile Include="Display.cpp" />
+    <ClCompile Include="DisplayDlg.cpp" />
     <ClCompile Include="FileFunctions.cpp" />
     <ClCompile Include="ImageDialog.cpp" />
     <ClCompile Include="ImageDlg.cpp" />
     <ClCompile Include="Layers.cpp" />
+    <ClCompile Include="LayersDlg.cpp" />
     <ClCompile Include="MySETIviewer.cpp" />
     <ClCompile Include="SettingsDlg.cpp" />
   </ItemGroup>

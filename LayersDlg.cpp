@@ -20,11 +20,12 @@
 // 
 // V1.0.1	2023-12-20	Initial release
 // V1.0.2   2023-12-20  Added Y direction flag for which direction to move image
-// V1.1.0   2023-12-21  Separate Display and Layers dialogs from SettingsDlg file
+// V1.1.1   2023-12-27  Separate Display and Layers dialogs from SettingsDlg file
 //                      Moved New, Add, Remove, Reload from menus to Layers dialog
 //                      Changed Layers dialog to be modeless.
 //                      Added ID_UPDATE to allow menu command to casue the Layers dialog
 //                      update the entire dialog
+//                      Added window position update
 //  
 // Global Settings dialog box handler
 // 
@@ -100,10 +101,11 @@ INT_PTR CALLBACK SettingsLayersDlg(HWND hDlg, UINT message, WPARAM wParam, LPARA
         SetCurrentLayerSettings(hDlg, CurrentLayer);
 
         {
-            // save window position/size data
-            CString csString = L"LayerWindow";
-            RestoreWindowPlacement(hDlg, csString);
-            //SaveWindowPlacement(hwndImage, csString);
+            int ResetWindows = GetPrivateProfileInt(L"GlobalSettings", L"ResetWindows", 0, (LPCTSTR)strAppNameINI);
+            if (!ResetWindows) {
+                CString csString = L"LayerWindow";
+                RestoreWindowPlacement(hDlg, csString);
+            }
         }
         Touched = FALSE;
         return (INT_PTR)TRUE;

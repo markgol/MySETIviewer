@@ -23,6 +23,8 @@
 // V1.1.0   2023-12-21  Separate Display and Layers dialogs from SettingsDlg file
 //                      Added ID_UPDATE to allow menu command to cause the Display dialog
 //                      update the entire dialog
+// V1.1.1   2023-12-27  Added, window position reset
+//                      Correction, reset pan poistion to 0,0 instead of 1,1
 //
 // Global Settings dialog box handler
 // 
@@ -68,8 +70,11 @@ INT_PTR CALLBACK SettingsDisplayDlg(HWND hDlg, UINT message, WPARAM wParam, LPAR
     {
         LoadDisplaySettings(hDlg);
 
-        CString csString = L"ImageDisplay";
-        RestoreWindowPlacement(hDlg, csString);
+        int ResetWindows = GetPrivateProfileInt(L"GlobalSettings", L"ResetWindows", 0, (LPCTSTR)strAppNameINI);
+        if (!ResetWindows) {
+            CString csString = L"ImageDisplay";
+            RestoreWindowPlacement(hDlg, csString);
+        }
 
         return (INT_PTR)TRUE;
     }
@@ -243,7 +248,7 @@ INT_PTR CALLBACK SettingsDisplayDlg(HWND hDlg, UINT message, WPARAM wParam, LPAR
         case IDC_POS_RESET:
         {
             if (ImgDlg) {
-                ImgDlg->SetPan(1.0f, 1.0f);
+                ImgDlg->SetPan(0.0f, 0.0f);
             }
         }
 

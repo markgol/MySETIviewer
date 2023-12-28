@@ -16,7 +16,8 @@
 #define IDD_SETTINGS_GLOBAL             139
 #define IDD_IMAGE                       140
 #define IDD_BITTOOLS_TEXT2STREAM        158
-#define ID_UPDATE						200
+#define ID_UPDATE                       200
+#define ID_IMG_STATUSBAR                201
 #define IDC_IMAGE_OUTPUT                1079
 #define IDC_IMAGE_OUTPUT_BROWSE         1080
 #define IDC_GENERATE_BMP                1081
@@ -43,6 +44,7 @@
 #define IDC_SETTINGS_AUTO_PNG           1114
 #define IDC_SETTINGS_START_LAST         1115
 #define IDC_GRID_ENABLE                 1116
+#define IDC_SETTINGS_STATUSBAR          1116
 #define IDC_SETTINGS_ENABLE_GAP         1118
 #define IDC_GAP_ENABLE                  1119
 #define IDC_INI_FILE                    1120
@@ -91,13 +93,16 @@
 #define IDC_ENABLE                      1225
 #define IDC_LAYERS_MIN_X                1226
 #define IDC_LAYER_TEXT                  1227
-#define IDC_GLOBAL_YPOS_UP              1227
-#define IDC_LAYERS_MIN_Y                1228
-#define IDC_GLOBAL_YPOS_DOWN            1228
-#define IDC_ADD_LAYER                   1229
-#define IDC_GLOBAL_KEEP_OPEN            1229
-#define IDC_GLOBAL_YPOS_DOWN2           1230
-#define IDC_GLOBAL_CLOSE_ON_OKCANCEL    1230
+#define IDC_GLOBAL_YPOS_UP              1228
+#define IDC_LAYERS_MIN_Y                1229
+#define IDC_GLOBAL_YPOS_DOWN            1230
+#define IDC_ADD_LAYER                   1231
+#define IDC_GLOBAL_KEEP_OPEN            1232
+#define IDC_GLOBAL_CLOSE_ON_OKCANCEL    1233
+#define IDC_MOUSE_SCALE                 1234
+#define IDC_SCALE_FACTOR                1235
+#define IDC_PAN_OFFSET_X                1236
+#define IDC_PAN_OFFSET_Y                1237
 #define IDM_PROPERTIES_SETTINGS         32601
 #define IDM_SETTINGS                    32602
 #define IDC_FILE_OPEN                   32604
@@ -113,6 +118,7 @@
 #define IDM_REFERENCE_SAVEBMP           32633
 #define IDM_BITTOOLS_TEXT2BITSTREAM     32636
 #define IDM_BITTOOLS_BINARYIMAGE        32637
+#define IDM_SETTINGS_RESET_WINDOWS      32640
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -120,9 +126,9 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        201
-#define _APS_NEXT_COMMAND_VALUE         32638
-#define _APS_NEXT_CONTROL_VALUE         1228
+#define _APS_NEXT_RESOURCE_VALUE        202
+#define _APS_NEXT_COMMAND_VALUE         32641
+#define _APS_NEXT_CONTROL_VALUE         1232
 #define _APS_NEXT_SYMED_VALUE           300
 #endif
 #endif

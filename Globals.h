@@ -26,6 +26,7 @@ extern WCHAR szTempDir[MAX_PATH];
 // globals flags
 extern BOOL AutoPNG;
 extern BOOL KeepOpen;
+extern BOOL ShowStatusBar;
 
 // Application handles and instances
 extern HWND hwndMain;

@@ -67,6 +67,12 @@
 //                      Moved Add layer to Layers dialog
 //                      Deleted Remove Layer from menu 
 //                      Correction, do not save anything when there are no layers
+// V1.1.1   2023-12-27  Fixed parameter in IDC_BMP_GENERATE when x,y sizes are the same
+//                      Added, status bar to Image window
+//                      Added, bitmap position to status bar
+//                      Changed, zoom, pan behaviour of bitmap
+//                      Changed window resize of image display
+//                      Added reset window positions on restart
 // 
 //  This appliction stores user parameters in a Windows style .ini file
 //  The MySETIviewer.ini file must be in the same directory as the exectable
@@ -116,6 +122,7 @@ ImageDialog* ImgDlg = NULL;     // This class is used to support displaying the 
 // global flags
 BOOL AutoPNG = FALSE;                // generate a PNG file when a BMP file is saved
 BOOL KeepOpen = TRUE;           // keep Display and Layers dialog open when clicking OK or Cancel
+BOOL ShowStatusBar = TRUE;     // Display Status bar
 
 // handles for modeless dialogs and windows
 HWND hwndImage = NULL;   // Handle for modeless Image Dialog window (this displays the image in a window)
@@ -298,14 +305,21 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
       return FALSE;
    }
 
+   int ResetWindows = GetPrivateProfileInt(L"GlobalSettings", L"ResetWindows", 0, (LPCTSTR)strAppNameINI);
+
    // restore main window position from last execution
-   CString csString = L"MainWindow";
-   RestoreWindowPlacement(hWnd, csString);
+   if (!ResetWindows) {
+       CString csString = L"MainWindow";
+       RestoreWindowPlacement(hWnd, csString);
+   }
 
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
 
    // load globals
+
+   // this must be done before ImageDialog class created
+   ShowStatusBar = GetPrivateProfileInt(L"SettingsGlobalDlg", L"ShowStatusBar", 1, (LPCTSTR)strAppNameINI);
 
    hwndMain = hWnd;
    ImgDlg = new ImageDialog;
@@ -326,8 +340,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    // variables
    AutoPNG = GetPrivateProfileInt(L"SettingsGlobalDlg", L"AutoPNG", 1, (LPCTSTR)strAppNameINI);
-   KeepOpen = GetPrivateProfileInt(L"SettingsGlobalDlg", L"KeepOpen", 1, (LPCTSTR)strAppNameINI);
-  
+   KeepOpen = GetPrivateProfileInt(L"SettingsGlobalDlg", L"KeepOpen", 0, (LPCTSTR)strAppNameINI);
    int ydir = GetPrivateProfileInt(L"SettingsGlobalDlg", L"yposDir", 1, (LPCTSTR)strAppNameINI);
    ImageLayers->SetYdir(ydir);
 
@@ -340,7 +353,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    // These are Display class settings
    COLORREF BackGroundColor = (COLORREF)GetPrivateProfileInt(L"SettingsDisplayDlg", L"rgbBackground", 131586, (LPCTSTR)strAppNameINI);
    COLORREF GapMajorColor = (COLORREF)GetPrivateProfileInt(L"SettingsDisplayDlg", L"rgbGapMajor", 2621521, (LPCTSTR)strAppNameINI);
-   COLORREF GapMinorColor = (COLORREF)GetPrivateProfileInt(L"SettingsDisplayDlg", L"rgbGapMinor", 986895, (LPCTSTR)strAppNameINI);
+   COLORREF GapMinorColor = (COLORREF)GetPrivateProfileInt(L"SettingsDisplayDlg", L"rgbGapMinor", 1973790, (LPCTSTR)strAppNameINI);
    Displays->SetColors(BackGroundColor, GapMajorColor, GapMinorColor);
 
    int ValueX, ValueY;
@@ -365,7 +378,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    // This is the color of the overlay background anywhere it hasn't been replaced by image data
    Color = (COLORREF) GetPrivateProfileInt(L"LayersDlg", L"BackGround", 2763306, (LPCTSTR)strAppNameINI);
    ImageLayers->SetBackgroundColor(Color);
-   Color = (COLORREF)GetPrivateProfileInt(L"LayersDlg", L"OverlayColor", 34952, (LPCTSTR)strAppNameINI);
+   Color = (COLORREF)GetPrivateProfileInt(L"LayersDlg", L"OverlayColor", 65793, (LPCTSTR)strAppNameINI);
    ImageLayers->SetOverlayColor(Color);
    Color = (COLORREF)GetPrivateProfileInt(L"LayersDlg", L"DefaultLayerColor", 16777215, (LPCTSTR)strAppNameINI);
    ImageLayers->SetDefaultLayerColor(Color);
@@ -389,6 +402,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    hwndLayers = CreateDialog(hInst, MAKEINTRESOURCE(IDD_SETTINGS_LAYERS), hWnd, SettingsLayersDlg);
 
+   // clear windows reset
+   WritePrivateProfileString(L"GlobalSettings", L"ResetWindows", L"0", (LPCTSTR)strAppNameINI);
    return TRUE;
 }
 
@@ -635,6 +650,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             //DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTINGS_LAYERS), hWnd, SettingsLayersDlg);
             break;
         }
+
+        case IDM_SETTINGS_RESET_WINDOWS:
+            WritePrivateProfileString(L"GlobalSettings", L"ResetWindows", L"1", (LPCTSTR)strAppNameINI);
+            break;
 
         case IDM_ABOUT:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, AboutDlg);

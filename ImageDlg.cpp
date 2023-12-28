@@ -19,7 +19,8 @@
 // This file contains the dialog callback procedures for the image dialog
 // 
 // V1.0.1	2023-12-20	Initial release
-//
+// V1.1.1   2023-12-27  Fixed parameter in IDC_BMP_GENERATE when x,y sizes are the same
+//                      Added window position reset
 // This handles all the actual display of the bitmap generated
 //
 #include "framework.h"
@@ -54,8 +55,20 @@ INT_PTR CALLBACK ImageDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_INITDIALOG:
     {
         ImgDlg->InitializeDirect2D();
-        CString csString = L"ImageWindow";
-        RestoreWindowPlacement(hDlg, csString);
+
+        int ResetWindows = GetPrivateProfileInt(L"GlobalSettings", L"ResetWindows", 0, (LPCTSTR)strAppNameINI);
+        if (!ResetWindows) {
+            CString csString = L"ImageWindow";
+            RestoreWindowPlacement(hDlg, csString);
+        }
+
+        ImgDlg->CreateStatusBar(hDlg, ID_IMG_STATUSBAR, hInst);
+        if (ShowStatusBar) {
+            ImgDlg->ShowStatusBar(TRUE);
+        }
+        else {
+            ImgDlg->ShowStatusBar(FALSE);
+        }
         return (INT_PTR)TRUE;
     }
 
@@ -77,8 +90,9 @@ INT_PTR CALLBACK ImageDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             COLORREF* Image;
             Displays->GetDisplay(&Image, &xsize, &ysize);
             
-            if(ImgDlg->LoadCOLORREFimage(hwndImage, xsize, xsize,Image)) {
+            if(ImgDlg->LoadCOLORREFimage(hwndImage, xsize, ysize,Image)) {
                 ImgDlg->Repaint();
+                ImgDlg->UpdateStatusBar(hDlg);
             }
             return (INT_PTR)TRUE;
         }
@@ -89,22 +103,21 @@ INT_PTR CALLBACK ImageDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         
     case WM_WINDOWPOSCHANGED:
     {
+        WINDOWPOS* wpos = (WINDOWPOS*)lParam;
+        RECT Rect;
+        GetClientRect(hDlg, &Rect);
+        ImgDlg->SetReportedWindowPos(hDlg, wpos);
         ImgDlg->Repaint();
+        ImgDlg->UpdateStatusBar(hDlg);
     }
 
     case WM_WINDOWPOSCHANGING:
     {
         WINDOWPOS* wpos = (WINDOWPOS*)lParam;
-        float AspectRatio;
         int x, y;
 
-        // maintain aspect ratio
-        if (Displays && Displays->GetSize(&x, &y)) {
-            AspectRatio = (float)x / (float)y;
-            wpos->cy = (int)((float)wpos->cx / AspectRatio);
-        }
-        else {
-            // don't sohw window is ther is nothing to show
+        if (!Displays || !Displays->GetSize(&x, &y)) {
+            // don't show window if there is nothing to show
             wpos->flags &= ~SWP_SHOWWINDOW;
         }
         return 0;
@@ -114,21 +127,28 @@ INT_PTR CALLBACK ImageDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     {
         ImgDlg->Rescale(GET_WHEEL_DELTA_WPARAM(wParam));
         ImgDlg->Repaint();
+        ImgDlg->UpdateStatusBar(hDlg);
         break;
     }
 
     case WM_MOUSEMOVE:
     {
-        //if (ImgDlg->PanImage(LOWORD(lParam), HIWORD(lParam))) {
-        if (ImgDlg->PanImage(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam))) {
+        int x, y;
+        x = GET_X_LPARAM(lParam);
+        y = GET_Y_LPARAM(lParam);
+
+        if (ImgDlg->PanImage(hDlg,x,y)) {
             ImgDlg->Repaint();
         }
+
+        ImgDlg->UpdateMousePos(hDlg, x, y);
+        ImgDlg->UpdateStatusBar(hDlg);
         break;
     }
 
     case WM_LBUTTONDOWN:
         ImgDlg->EnablePanning(TRUE);
-        SetCapture(hDlg); // Capture the mouse input to receive WM_MOUSEMOVE even if the mouse is outside the window
+        SetCapture(hDlg); //ResizeStatusBar Capture the mouse input to receive WM_MOUSEMOVE even if the mouse is outside the window
         break;
 
     case WM_LBUTTONUP:
@@ -136,10 +156,29 @@ INT_PTR CALLBACK ImageDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         ReleaseCapture(); // Release the mouse input capture
         break;
 
+    case WM_SIZE:
+    {
+        int xsize, ysize;
+        COLORREF* Image;
+        Displays->GetDisplay(&Image, &xsize, &ysize);
+
+        if (ImgDlg->LoadCOLORREFimage(hwndImage, xsize, ysize, Image)) {
+            ImgDlg->Repaint();
+            ImgDlg->UpdateStatusBar(hDlg);
+        }
+
+        ImgDlg->ResizeStatusBar(hDlg);
+        ImgDlg->UpdateStatusBar(hDlg);
+        break;
+    }
+
     case WM_DESTROY:
     {
+        ImgDlg->DestroyStatusBar();
+
         // release Direct2D
         ImgDlg->ReleaseDirect2D();
+
         hwndImage = NULL;
         break;
     }

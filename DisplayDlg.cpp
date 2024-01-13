@@ -76,6 +76,13 @@ INT_PTR CALLBACK SettingsDisplayDlg(HWND hDlg, UINT message, WPARAM wParam, LPAR
             RestoreWindowPlacement(hDlg, csString);
         }
 
+        if (!Displays->IsGridEnabled()) {
+            CheckDlgButton(hDlg, IDC_ENABLE, BST_UNCHECKED);
+        }
+        else {
+            CheckDlgButton(hDlg, IDC_ENABLE, BST_CHECKED);
+        }
+
         return (INT_PTR)TRUE;
     }
 
@@ -238,11 +245,25 @@ INT_PTR CALLBACK SettingsDisplayDlg(HWND hDlg, UINT message, WPARAM wParam, LPAR
             return (INT_PTR)TRUE;
         }
 
+        case IDC_ENABLE:
+        {
+            if (IsDlgButtonChecked(hDlg, IDC_ENABLE) == BST_CHECKED) {
+                Displays->EnableGrid(TRUE);
+            }
+            else {
+                Displays->EnableGrid(FALSE);
+            }
+            ApplyDisplay(hDlg);
+            return (INT_PTR)TRUE;
+        }
+
         case IDC_SCALE_RESET:
         {
             if (ImgDlg) {
                 ImgDlg->SetScale(1.0f);
             }
+            ApplyDisplay(hDlg);
+            return (INT_PTR)TRUE;
         }
 
         case IDC_POS_RESET:
@@ -250,6 +271,8 @@ INT_PTR CALLBACK SettingsDisplayDlg(HWND hDlg, UINT message, WPARAM wParam, LPAR
             if (ImgDlg) {
                 ImgDlg->SetPan(0.0f, 0.0f);
             }
+            ApplyDisplay(hDlg);
+            return (INT_PTR)TRUE;
         }
 
         case IDC_APPLY:

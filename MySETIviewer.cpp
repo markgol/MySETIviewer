@@ -73,6 +73,13 @@
 //                      Changed, zoom, pan behaviour of bitmap
 //                      Changed window resize of image display
 //                      Added reset window positions on restart
+// V1.1.2   2024-01-07  Added option to turn the grid on or off
+//                      Added window position reset
+//                      Added Action menu to Image Window
+//                          Reset Pan
+//                          Reset Zoom
+//                          Close
+//                      Changed Image Window, does not close with ESC or Enter keys
 // 
 //  This appliction stores user parameters in a Windows style .ini file
 //  The MySETIviewer.ini file must be in the same directory as the exectable
@@ -124,7 +131,7 @@ BOOL AutoPNG = FALSE;                // generate a PNG file when a BMP file is s
 BOOL KeepOpen = TRUE;           // keep Display and Layers dialog open when clicking OK or Cancel
 BOOL ShowStatusBar = TRUE;     // Display Status bar
 
-// handles for modeless dialogs and windows
+                               // handles for modeless dialogs and windows
 HWND hwndImage = NULL;   // Handle for modeless Image Dialog window (this displays the image in a window)
 HWND hwndDisplay = NULL; // Handle for the Display dialog (sets the grid and gap, and
                          //    creates the Display image used in the Image Dialog
@@ -372,6 +379,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    ValueX = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GapXminor", 1, (LPCTSTR)strAppNameINI);
    ValueY = GetPrivateProfileInt(L"SettingsDisplayDlg", L"GapYminor", 1, (LPCTSTR)strAppNameINI);
    Displays->SetGapMinor(ValueX, ValueY);
+
+   int Enable = GetPrivateProfileInt(L"SettingsDisplayDlg", L"EnableGrid", 1, (LPCTSTR)strAppNameINI);
+   Displays->EnableGrid(Enable);
 
    // These are Layer class settings
    COLORREF Color;

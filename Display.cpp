@@ -61,6 +61,26 @@ Display::~Display()
 
 //*******************************************************************************
 //
+//  IsGridEnabled(void)
+// 
+//*******************************************************************************
+BOOL Display::IsGridEnabled(void)
+{
+    return GridEnabled;
+}
+
+//*******************************************************************************
+//
+//  EnableGrid(BOOL Enable)
+// 
+//*******************************************************************************
+void Display::EnableGrid(BOOL Enable)
+{
+    GridEnabled = Enable;
+}
+
+//*******************************************************************************
+//
 //  CreateDisplayImage(void)
 // 
 //*******************************************************************************
@@ -97,7 +117,7 @@ int Display::CreateDisplayImages(void)
     if (GapXminor < 0) GapXminor = 0;
     if (GapYminor < 0) GapYminor = 0;
 
-    // there are four cases for the gaps when calculating the display extent
+    // there are 5 cases for the gaps when calculating the display extent
     // 
     // Gap  Major   Minor
     //      !=0     !=0
@@ -107,8 +127,17 @@ int Display::CreateDisplayImages(void)
     //
     // The overall display is surrounded by a frame of MajorGap size
 
+    if (!GridEnabled) {
+        // Grid disabled case just set the everything to Background image
+        for (int i = 0; i < DisplaySize; i++) {
+            DisplayReference[i] = rgbBackground;
+        }
+        return APP_SUCCESS;
+    }
+
     int dAddress;
     int y = 0;
+
     if (GapYmajor != 0 && GapYminor != 0) {
         // starts with GapYmajor lines of rgbGapMajor
         for (int gap = 0; gap < GapYmajor && y < DisplayYextent; gap++, y++) {
@@ -590,52 +619,65 @@ void Display::CalculateDisplayExtent(int ImageXextent, int ImageYextent) {
     //
     // The overall display is surrounded by a frame of MajorGap size
     //
-    if (GapYmajor == 0 && GapYminor == 0) {
+    if (GridEnabled) {
+        if (GapYmajor == 0 && GapYminor == 0) {
+            NumberMajorYgap = 0;
+            NumberMinorYgap = 0;
+            DisplayYextent = ImageYextent;
+        }
+        else if (GapYmajor == 0 && GapYminor != 0) {
+            NumberMajorYgap = 0;
+            NumberMinorYgap = (ImageYextent / GridYminor) - 1;
+            DisplayYextent = ImageYextent + NumberMinorYgap * GapYminor;
+        }
+        else if (GapYmajor != 0 && GapYminor == 0) {
+            NumberMajorYgap = (ImageYextent / (GridYmajor * GridYminor)) + 1;
+            NumberMinorYgap = 0;
+            DisplayYextent = ImageYextent + NumberMajorYgap * GapYmajor;
+        }
+        else { // GapYmajor != 0 && GapYminor != 0
+            NumberMajorYgap = (ImageYextent / (GridYmajor * GridYminor)) + 1;
+            NumberMinorYgap = (GridYmajor - 1) * (NumberMajorYgap - 1);
+            DisplayYextent = ImageYextent +
+                (NumberMajorYgap * GapYmajor) +
+                (NumberMinorYgap * GapYminor);
+        }
+    }
+    else {
         NumberMajorYgap = 0;
         NumberMinorYgap = 0;
         DisplayYextent = ImageYextent;
     }
-    else if (GapYmajor == 0 && GapYminor != 0) {
-        NumberMajorYgap = 0;
-        NumberMinorYgap = (ImageYextent/GridYminor)-1;
-        DisplayYextent = ImageYextent + NumberMinorYgap * GapYminor;
-    }
-    else if (GapYmajor != 0 && GapYminor == 0) {
-        NumberMajorYgap = (ImageYextent / (GridYmajor*GridYminor)) + 1;
-        NumberMinorYgap = 0;
-        DisplayYextent = ImageYextent + NumberMajorYgap * GapYmajor;
-    }
-    else { // GapYmajor != 0 && GapYminor != 0
-        NumberMajorYgap = (ImageYextent / (GridYmajor * GridYminor)) + 1;
-        NumberMinorYgap = (GridYmajor-1) * (NumberMajorYgap-1);
-        DisplayYextent = ImageYextent + 
-                        (NumberMajorYgap * GapYmajor) +
-                        (NumberMinorYgap * GapYminor);
-    }
 
-    if (GapXmajor == 0 && GapXminor == 0) {
+    if (GridEnabled) {
+        if (GapXmajor == 0 && GapXminor == 0) {
+            NumberMajorXgap = 0;
+            NumberMinorXgap = 0;
+            DisplayXextent = ImageXextent;
+        }
+        else if (GapXmajor == 0 && GapXminor != 0) {
+            NumberMajorXgap = 0;
+            NumberMinorXgap = (ImageXextent / GridXminor) - 1;
+            DisplayXextent = ImageXextent + NumberMinorXgap * GapXminor;
+        }
+        else if (GapXmajor != 0 && GapXminor == 0) {
+            NumberMajorXgap = (ImageXextent / (GridXmajor * GridXminor)) + 1;
+            NumberMinorXgap = 0;
+            DisplayXextent = ImageXextent + NumberMajorXgap * GapXmajor;
+        }
+        else { // GapYmajor != 0 && GapYminor != 0
+            NumberMajorXgap = (ImageXextent / (GridXmajor * GridXminor)) + 1;
+            NumberMinorXgap = (GridXmajor - 1) * (NumberMajorXgap - 1);
+            DisplayXextent = ImageXextent +
+                (NumberMajorXgap * GapXmajor) +
+                (NumberMinorXgap * GapXminor);
+        }
+    }
+    else {
         NumberMajorXgap = 0;
         NumberMinorXgap = 0;
         DisplayXextent = ImageXextent;
     }
-    else if (GapXmajor == 0 && GapXminor != 0) {
-        NumberMajorXgap = 0;
-        NumberMinorXgap = (ImageXextent / GridXminor) - 1;
-        DisplayXextent = ImageXextent + NumberMinorXgap * GapXminor;
-    }
-    else if (GapXmajor != 0 && GapXminor == 0) {
-        NumberMajorXgap = (ImageXextent / (GridXmajor * GridXminor)) + 1;
-        NumberMinorXgap = 0;
-        DisplayXextent = ImageXextent + NumberMajorXgap * GapXmajor;
-    }
-    else { // GapYmajor != 0 && GapYminor != 0
-        NumberMajorXgap = (ImageXextent / (GridXmajor * GridXminor)) + 1;
-        NumberMinorXgap = (GridXmajor - 1) * (NumberMajorXgap - 1);
-        DisplayXextent = ImageXextent +
-            (NumberMajorXgap * GapXmajor) +
-            (NumberMinorXgap * GapXminor);
-    }
-
     return;
 }
 

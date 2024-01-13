@@ -32,7 +32,48 @@
 //
 
 class Display {
+public:
+	Display();
+	~Display();
+
+	int GetColors(COLORREF* BackgroundColor, COLORREF* GapMajorColor, COLORREF* GapMinorColor);
+	int SetColors(COLORREF BackgroundColor, COLORREF GapMajorColor, COLORREF GapMinorColor);
+	int SetBackgroundColor(COLORREF BackgroundColor);
+	int SetGapMajorColor(COLORREF GapMajorColor);
+	int SetGapMinorColor(COLORREF GapMinorColor);
+	COLORREF GetBackgroundColor(void);
+	COLORREF GetGapMajorColor(void);
+	COLORREF GetGapMinorColor(void);
+
+	int GetGridMajor(int* x, int* y);
+	int GetGridMinor(int* x, int* y);
+	int SetGridMajor(int x, int y);
+	int SetGridMinor(int x, int y);
+
+	int GetGapMajor(int* xwidth, int* ywidth);
+	int GetGapMinor(int* xwidth, int* ywidth);
+	int SetGapMajor(int xwidth, int ywidth);
+	int SetGapMinor(int xwidth, int ywidth);
+
+	int CreateDisplayImages(void);
+	int ReleaseDisplayImages(void);
+	int UpdateDisplay(COLORREF* OverlayImage, int xsize, int ysize);
+
+	void CalculateDisplayExtent(int ImageXextent, int ImageYextent);
+	int SaveBMP(WCHAR* Filename, int Select);
+
+	void LoadConfiguration(WCHAR* szFilename);
+	int SaveConfiguration(WCHAR* szFilename);
+
+	int GetDisplay(COLORREF** Image, int* xsize, int* ysize);
+	BOOL GetSize(int* x, int* y);
+	BOOL IsGridEnabled(void);
+	void EnableGrid(BOOL Enable);
+
 private:
+	// grid are on by default
+	BOOL GridEnabled = TRUE;
+
 	// color setting tables for Display
 	COLORREF rgbBackground = 0;      // display background color
 	COLORREF rgbGapMajor = 0;            // display Grid color
@@ -74,39 +115,4 @@ private:
 		COLORREF rgbGapMajor,
 		COLORREF rgbGapMinor);
 
-public:
-	Display();
-	~Display();
-
-	int GetColors(COLORREF* BackgroundColor, COLORREF* GapMajorColor, COLORREF* GapMinorColor);
-	int SetColors(COLORREF BackgroundColor, COLORREF GapMajorColor, COLORREF GapMinorColor);
-	int SetBackgroundColor(COLORREF BackgroundColor);
-	int SetGapMajorColor(COLORREF GapMajorColor);
-	int SetGapMinorColor(COLORREF GapMinorColor);
-	COLORREF GetBackgroundColor(void);
-	COLORREF GetGapMajorColor(void);
-	COLORREF GetGapMinorColor(void);
-
-	int GetGridMajor(int* x, int* y);
-	int GetGridMinor(int* x, int* y);
-	int SetGridMajor(int x, int y);
-	int SetGridMinor(int x, int y);
-
-	int GetGapMajor(int* xwidth, int* ywidth);
-	int GetGapMinor(int* xwidth, int* ywidth);
-	int SetGapMajor(int xwidth, int ywidth);
-	int SetGapMinor(int xwidth, int ywidth);
-
-	int CreateDisplayImages(void);
-	int ReleaseDisplayImages(void);
-	int UpdateDisplay(COLORREF* OverlayImage, int xsize, int ysize);
-
-	void CalculateDisplayExtent(int ImageXextent, int ImageYextent);
-	int SaveBMP(WCHAR* Filename, int Select);
-
-	void LoadConfiguration(WCHAR* szFilename);
-	int SaveConfiguration(WCHAR* szFilename);
-
-	int GetDisplay(COLORREF** Image, int* xsize, int* ysize);
-	BOOL GetSize(int* x, int* y);
 };

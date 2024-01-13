@@ -9,6 +9,7 @@
 #define IDI_MYSETIVIEWER                110
 #define IDC_MYSETIVIEWER                112
 #define IDR_MAINFRAME                   128
+#define IDR_IMAGE_WINDOW                129
 #define IDD_SETTINGS_DISPLAY            134
 #define IDD_BITTOOLS_BINARYIMAGE        136
 #define IDD_DISPLAY                     137
@@ -119,6 +120,11 @@
 #define IDM_BITTOOLS_TEXT2BITSTREAM     32636
 #define IDM_BITTOOLS_BINARYIMAGE        32637
 #define IDM_SETTINGS_RESET_WINDOWS      32640
+#define IDM_RESET_ZOOM                  32783
+#define IDM_RESET_PAN                   32784
+#define ID_ACTIONS_CROSSHAIRS           32788
+#define IDM_CROSSHAIRS                  32789
+#define IDC_EXIT                        32790
 #define IDC_STATIC                      -1
 
 // Next default values for new objects

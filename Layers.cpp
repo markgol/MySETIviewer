@@ -250,7 +250,6 @@ int Layers::UpdateOverlay(void) {
 		}
 		iColor.Color = LayerColor[Layer];
 
-		// todo: add yposDir here
 		if (yposDir == 0) {
 			oAddress = ((Yextent0 + LayerY[Layer]) - (LayerYsize[Layer] / 2)) * ImageXextent;
 		}

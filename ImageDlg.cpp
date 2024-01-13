@@ -19,8 +19,14 @@
 // This file contains the dialog callback procedures for the image dialog
 // 
 // V1.0.1	2023-12-20	Initial release
-// V1.1.1   2023-12-27  Fixed parameter in IDC_BMP_GENERATE when x,y sizes are the same
+// V1.1.2   2023-12-27  Fixed parameter in IDC_BMP_GENERATE when x,y sizes are the same
 //                      Added window position reset
+//                      Added Action menu to Image Window
+//                          Reset Pan
+//                          Reset Zoom
+//                          Close
+//                      Changed Image Window, does not close with ESC or Enter keys
+// 
 // This handles all the actual display of the bitmap generated
 //
 #include "framework.h"
@@ -38,6 +44,8 @@
 #include "globals.h"
 #include "AppFunctions.h"
 #include "ImageDialog.h"
+
+extern void ApplyDisplay(HWND hDlg);
 
 //*******************************************************************************
 //
@@ -76,11 +84,35 @@ INT_PTR CALLBACK ImageDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         switch (LOWORD(wParam)) {
 
         case IDCANCEL:
+        case IDOK:
+            return (INT_PTR)TRUE;
+
+        case IDC_EXIT:
         {
             // save window position/size data
             CString csString = L"ImageWindow";
             SaveWindowPlacement(hDlg, csString);
             ShowWindow(hwndImage, SW_HIDE);
+            return (INT_PTR)TRUE;
+        }
+
+        case IDM_RESET_ZOOM:
+        {
+            if (ImgDlg) {
+                ImgDlg->SetScale(1.0f);
+            }
+            ImgDlg->Repaint();
+            ImgDlg->UpdateStatusBar(hDlg);
+            return (INT_PTR)TRUE;
+        }
+
+        case IDM_RESET_PAN:
+        {
+            if (ImgDlg) {
+                ImgDlg->SetPan(0.0f, 0.0f);
+            }
+            ImgDlg->Repaint();
+            ImgDlg->UpdateStatusBar(hDlg);
             return (INT_PTR)TRUE;
         }
 
@@ -100,15 +132,17 @@ INT_PTR CALLBACK ImageDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         default:
             return (INT_PTR)FALSE;
         } // end of WM_COMMAND
-        
-    case WM_WINDOWPOSCHANGED:
+
+    case WM_SYSCOMMAND:
     {
-        WINDOWPOS* wpos = (WINDOWPOS*)lParam;
-        RECT Rect;
-        GetClientRect(hDlg, &Rect);
-        ImgDlg->SetReportedWindowPos(hDlg, wpos);
-        ImgDlg->Repaint();
-        ImgDlg->UpdateStatusBar(hDlg);
+        if (wParam == SC_CLOSE) {
+            // save window position/size data
+            CString csString = L"ImageWindow";
+            SaveWindowPlacement(hDlg, csString);
+            ShowWindow(hwndImage, SW_HIDE);
+            return (INT_PTR)TRUE;
+        }
+        return (INT_PTR)FALSE;
     }
 
     case WM_WINDOWPOSCHANGING:
